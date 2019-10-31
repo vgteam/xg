@@ -146,7 +146,7 @@ add_dependencies(xg_objs tayweeargs)
 add_dependencies(xg_objs gfakluge)
 add_dependencies(xg_objs ips4o)
 
-target_include_directories(xg_objs PUBLIC
+set(xg_INCLUDES
   "${CMAKE_SOURCE_DIR}/src"
   "${handlegraph_INCLUDE}"
   "${sdsl-lite_INCLUDE}"
@@ -157,6 +157,7 @@ target_include_directories(xg_objs PUBLIC
   "${gfakluge_INCLUDE}"
   "${gfakluge_tinyFA_INCLUDE}")
 
+target_include_directories(xg_objs PUBLIC ${xg_INCLUDES})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
 # The following folder will be included
@@ -184,6 +185,8 @@ target_include_directories(xg PUBLIC
   "${gfakluge_tinyFA_INCLUDE}")
 
 
+
+
 # macOS doesn't want you to link in libatomic this way
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries(xg
@@ -202,4 +205,15 @@ elseif (TRUE)
     )
   set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
+
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/deps/pybind11/CMakeLists.txt)
+  execute_process(COMMAND git submodule update --init --recursive)
+endif()
+
+add_subdirectory(deps/pybind11)
+pybind11_add_module(xg_pybind11 "${CMAKE_SOURCE_DIR}/src/pythonmodule.cpp")
+add_dependencies(xg_pybind11 ${odgi_DEPS} libxg)
+target_include_directories(xg_pybind11 PUBLIC ${xg_INCLUDES})
+target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxg.a" "${xg_LIBS}")
+set_target_properties(xg_pybind11 PROPERTIES OUTPUT_NAME "xg")
 
