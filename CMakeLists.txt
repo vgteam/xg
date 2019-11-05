@@ -138,6 +138,7 @@ set(ips4o_INCLUDE "${SOURCE_DIR}")
 #set(CMAKE_BUILD_TYPE Release)
 
 add_library(xg_objs OBJECT src/xg.cpp)
+set_property(TARGET xg_objs PROPERTY POSITION_INDEPENDENT_CODE 1)
 
 add_dependencies(xg_objs handlegraph)
 add_dependencies(xg_objs sdsl-lite)
@@ -167,6 +168,8 @@ include_directories("${PROJECT_SOURCE_DIR}")
 #add_library(libxg STATIC ${CMAKE_SOURCE_DIR}/src/xg.cpp)
 add_library(libxg STATIC $<TARGET_OBJECTS:xg_objs>)
 set_target_properties(libxg PROPERTIES OUTPUT_NAME "xg")
+add_library(libxgdyn SHARED $<TARGET_OBJECTS:xg_objs>)
+set_target_properties(libxgdyn PROPERTIES OUTPUT_NAME "xgdyn")
 
 # set up our target executable and specify its dependencies and includes
 add_executable(xg
@@ -212,8 +215,8 @@ endif()
 
 add_subdirectory(deps/pybind11)
 pybind11_add_module(xg_pybind11 "${CMAKE_SOURCE_DIR}/src/pythonmodule.cpp")
-add_dependencies(xg_pybind11 ${odgi_DEPS} libxg)
+add_dependencies(xg_pybind11 ${xg_DEPS} libxgdyn)
 target_include_directories(xg_pybind11 PUBLIC ${xg_INCLUDES})
-target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxg.a" "${xg_LIBS}")
+target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxgdyn.so" "${xg_LIBS}")
 set_target_properties(xg_pybind11 PROPERTIES OUTPUT_NAME "xg")
 
