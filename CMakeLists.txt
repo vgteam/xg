@@ -77,6 +77,7 @@ ExternalProject_Add(handlegraph
   INSTALL_COMMAND "")
 ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/src/handlegraph/src/include")
+set(handlegraph_SRC "${INSTALL_DIR}/src/handlegraph/src/")
 set(handlegraph_LIB "${INSTALL_DIR}/src/handlegraph-build")
 
 # sdsl-lite (full build using its cmake config)
@@ -166,10 +167,10 @@ include_directories("${PROJECT_SOURCE_DIR}")
 
 # build a static library
 #add_library(libxg STATIC ${CMAKE_SOURCE_DIR}/src/xg.cpp)
-add_library(libxg STATIC $<TARGET_OBJECTS:xg_objs>)
-set_target_properties(libxg PROPERTIES OUTPUT_NAME "xg")
-add_library(libxgdyn SHARED $<TARGET_OBJECTS:xg_objs>)
-set_target_properties(libxgdyn PROPERTIES OUTPUT_NAME "xgdyn")
+add_library(libxg_static STATIC $<TARGET_OBJECTS:xg_objs>)
+set_target_properties(libxg_static PROPERTIES OUTPUT_NAME "xg")
+add_library(libxg_shared SHARED $<TARGET_OBJECTS:xg_objs>)
+set_target_properties(libxg_shared PROPERTIES OUTPUT_NAME "xg")
 
 # set up our target executable and specify its dependencies and includes
 add_executable(xg
@@ -215,8 +216,8 @@ endif()
 
 add_subdirectory(deps/pybind11)
 pybind11_add_module(xg_pybind11 "${CMAKE_SOURCE_DIR}/src/pythonmodule.cpp")
-add_dependencies(xg_pybind11 ${xg_DEPS} libxgdyn)
+add_dependencies(xg_pybind11 ${xg_DEPS} libxg_shared)
 target_include_directories(xg_pybind11 PUBLIC ${xg_INCLUDES})
-target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxgdyn.so" "${xg_LIBS}")
+target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxg.so" "${xg_LIBS}")
 set_target_properties(xg_pybind11 PROPERTIES OUTPUT_NAME "xg")
 
