@@ -77,6 +77,7 @@ ExternalProject_Add(handlegraph
   INSTALL_COMMAND "")
 ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/src/handlegraph/src/include")
+set(handlegraph_SRC "${INSTALL_DIR}/src/handlegraph/src/")
 set(handlegraph_LIB "${INSTALL_DIR}/src/handlegraph-build")
 
 # sdsl-lite (full build using its cmake config)
@@ -138,6 +139,7 @@ set(ips4o_INCLUDE "${SOURCE_DIR}")
 #set(CMAKE_BUILD_TYPE Release)
 
 add_library(xg_objs OBJECT src/xg.cpp)
+set_property(TARGET xg_objs PROPERTY POSITION_INDEPENDENT_CODE 1)
 
 add_dependencies(xg_objs handlegraph)
 add_dependencies(xg_objs sdsl-lite)
@@ -146,7 +148,7 @@ add_dependencies(xg_objs tayweeargs)
 add_dependencies(xg_objs gfakluge)
 add_dependencies(xg_objs ips4o)
 
-target_include_directories(xg_objs PUBLIC
+set(xg_INCLUDES
   "${CMAKE_SOURCE_DIR}/src"
   "${handlegraph_INCLUDE}"
   "${sdsl-lite_INCLUDE}"
@@ -157,6 +159,7 @@ target_include_directories(xg_objs PUBLIC
   "${gfakluge_INCLUDE}"
   "${gfakluge_tinyFA_INCLUDE}")
 
+target_include_directories(xg_objs PUBLIC ${xg_INCLUDES})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
 # The following folder will be included
@@ -164,8 +167,10 @@ include_directories("${PROJECT_SOURCE_DIR}")
 
 # build a static library
 #add_library(libxg STATIC ${CMAKE_SOURCE_DIR}/src/xg.cpp)
-add_library(libxg STATIC $<TARGET_OBJECTS:xg_objs>)
-set_target_properties(libxg PROPERTIES OUTPUT_NAME "xg")
+add_library(libxg_static STATIC $<TARGET_OBJECTS:xg_objs>)
+set_target_properties(libxg_static PROPERTIES OUTPUT_NAME "xg")
+add_library(libxg_shared SHARED $<TARGET_OBJECTS:xg_objs>)
+set_target_properties(libxg_shared PROPERTIES OUTPUT_NAME "xg")
 
 # set up our target executable and specify its dependencies and includes
 add_executable(xg
@@ -182,6 +187,8 @@ target_include_directories(xg PUBLIC
   "${mmmultimap_INCLUDE}"
   "${gfakluge_INCLUDE}"
   "${gfakluge_tinyFA_INCLUDE}")
+
+
 
 
 # macOS doesn't want you to link in libatomic this way
@@ -202,4 +209,15 @@ elseif (TRUE)
     )
   set(CMAKE_EXE_LINKER_FLAGS "-static")
 endif()
+
+if (NOT EXISTS ${CMAKE_SOURCE_DIR}/deps/pybind11/CMakeLists.txt)
+  execute_process(COMMAND git submodule update --init --recursive)
+endif()
+
+add_subdirectory(deps/pybind11)
+pybind11_add_module(xg_pybind11 "${CMAKE_SOURCE_DIR}/src/pythonmodule.cpp")
+add_dependencies(xg_pybind11 ${xg_DEPS} libxg_shared)
+target_include_directories(xg_pybind11 PUBLIC ${xg_INCLUDES})
+target_link_libraries(xg_pybind11 PRIVATE "${CMAKE_SOURCE_DIR}/lib/libxg.so" "${xg_LIBS}")
+set_target_properties(xg_pybind11 PROPERTIES OUTPUT_NAME "xg")
 
