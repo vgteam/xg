@@ -143,7 +143,7 @@ void XG::deserialize_members(std::istream& in) {
         case 12:
         case 13:
         case 14:
-            std::cerr << "warning:[XG] Loading an out-of-date XG format."
+            std::cerr << "warning:[XG] Loading an out-of-date XG format. "
                       << "For better performance over repeated loads, consider recreating this XG index." << std::endl;
             // Fall through
         case 15:
@@ -172,11 +172,11 @@ void XG::deserialize_members(std::istream& in) {
                     
                     old_giv.load(in);
                     old_g_bv.load(in);
-                    old_g_bv_rank.load(in, &g_bv);
+                    old_g_bv_rank.load(in, &old_g_bv);
                     {
-                        // we don't actually need this for the conversion, so just forget it
+                        // we don't actually need this for the conversion, so just skip over it
                         sdsl::bit_vector::select_1_type old_g_bv_select;
-                        old_g_bv_select.load(in, &g_bv);
+                        old_g_bv_select.load(in, &old_g_bv);
                     }
                     
                     reencode_old_g_vector(old_giv, old_g_bv, old_g_bv_rank);
