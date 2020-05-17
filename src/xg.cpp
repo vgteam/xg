@@ -1651,7 +1651,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
         cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << " 'from' edges and " << num_to << " 'to' edges" << endl;
 #endif
         
-        // recount the edges as either left or right side instead of to or from
+        // recount the edges as either left/right instead of to/from
         size_t num_left = 0, num_right = 0;
         size_t begin = old_g_idx + G_NODE_HEADER_LENGTH;
         size_t end = begin + num_from * OLD_G_EDGE_LENGTH;
@@ -1690,33 +1690,8 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
         size_t next_left_idx = new_g_idx + G_NODE_HEADER_LENGTH;
         size_t next_right_idx = next_left_idx + num_left;
         
-        // first the from edges
+        // first the to edges
         begin = old_g_idx + G_NODE_HEADER_LENGTH;
-        end = begin + num_from * OLD_G_EDGE_LENGTH;
-        for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
-            bool from_rev, to_rev;
-            orientation_from_old_edge_type(old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET], from_rev, to_rev);
-            
-            // apply the relative offset in the old vector
-            size_t old_g_nbr_idx = old_g_idx + old_g_iv[i + OLD_G_EDGE_OFFSET_OFFSET];
-            // translate that offset into the new vector using rank/select
-            size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
-            
-#ifdef VERBOSE_DEBUG
-            cerr << "\told 'from' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
-#endif
-            
-            if (from_rev) {
-                g_iv[next_left_idx] = encode_edge(new_g_idx, new_g_nbr_idx, !to_rev);
-                ++next_left_idx;
-            }
-            else {
-                g_iv[next_right_idx] = encode_edge(new_g_idx, new_g_nbr_idx, to_rev);
-                ++next_right_idx;
-            }
-        }
-        // now the to edges (TODO: repetitive)
-        begin = end;
         end = begin + num_to * OLD_G_EDGE_LENGTH;
         for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
             bool from_rev, to_rev;
@@ -1737,6 +1712,31 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
             }
             else {
                 g_iv[next_right_idx] = encode_edge(new_g_idx, new_g_nbr_idx, !from_rev);
+                ++next_right_idx;
+            }
+        }
+        // now the from edges (TODO: repetitive)
+        begin = end;
+        end = begin + num_from * OLD_G_EDGE_LENGTH;
+        for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
+            bool from_rev, to_rev;
+            orientation_from_old_edge_type(old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET], from_rev, to_rev);
+            
+            // apply the relative offset in the old vector
+            size_t old_g_nbr_idx = old_g_idx + old_g_iv[i + OLD_G_EDGE_OFFSET_OFFSET];
+            // translate that offset into the new vector using rank/select
+            size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
+            
+#ifdef VERBOSE_DEBUG
+            cerr << "\told 'from' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
+#endif
+            
+            if (from_rev) {
+                g_iv[next_left_idx] = encode_edge(new_g_idx, new_g_nbr_idx, !to_rev);
+                ++next_left_idx;
+            }
+            else {
+                g_iv[next_right_idx] = encode_edge(new_g_idx, new_g_nbr_idx, to_rev);
                 ++next_right_idx;
             }
         }
