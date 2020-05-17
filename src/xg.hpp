@@ -488,6 +488,8 @@ private:
     // XGPath's have been created (used during construction)
     void index_node_to_path(const std::string& basename);
     
+    void print_graph() const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence
     ////////////////////////////////////////////////////////////////////////////

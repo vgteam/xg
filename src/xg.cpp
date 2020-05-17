@@ -15,6 +15,8 @@
 //#define debug_algorithms
 //#define debug_component_index
 //#define debug_path_index
+//#define DEBUG_CONSTRUCTION
+//#define debug_print_graph
 
 namespace xg {
 
@@ -329,6 +331,10 @@ void XG::deserialize_members(std::istream& in) {
         std::cerr << "error [xg]: Unexpected error parsing XG data. Is it in version " << file_version << " XG format?" << std::endl;
         throw e;
     }
+#ifdef VERBOSE_DEBUG
+    cerr << "printing deserialized graph" << endl;
+    print_graph();
+#endif
 }
 
 void XGPath::load(std::istream& in) {
@@ -1211,7 +1217,6 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
         curr_path_steps.clear();
     }
 
-//#define DEBUG_CONSTRUCTION
 #ifdef DEBUG_CONSTRUCTION
     cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
     cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
@@ -1260,64 +1265,70 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 
 #endif
 
-    bool print_graph = false;
-    if (print_graph) {
-        cerr << "printing graph" << endl;
-        // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
-        for (size_t i = 0; i < g_iv.size(); ++i) {
-            cerr << (int64_t)g_iv[i] << " ";
-        } cerr << endl;
-        for (int64_t i = 0; i < node_count; ++i) {
-            int64_t id = rank_to_id(i+1);
-            // find the start of the node's record in g_iv
-            int64_t g = g_bv_select(id_to_rank(id));
-            // get to the edges to
-            int edges_left_count = g_iv[g+G_NODE_LEFT_COUNT_OFFSET];
-            int edges_right_count = g_iv[g+G_NODE_RIGHT_COUNT_OFFSET];
-            int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
-            size_t seq_start = g_iv[g+G_NODE_SEQ_START_OFFSET];
-            cerr << id << " ";
-            for (int64_t j = seq_start; j < seq_start+sequence_size; ++j) {
-                cerr << revdna3bit(s_iv[j]);
-            } cerr << " : ";
-            int64_t l = g + G_NODE_HEADER_LENGTH;
-            int64_t r = g + G_NODE_HEADER_LENGTH + edges_left_count;
-            cerr << " left ";
-            for (int64_t j = l; j < r; ++j) {
-                cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
-            }
-            cerr << " right ";
-            for (int64_t j = r; j < r + edges_right_count; ++j) {
-                cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
-            }
-            cerr << endl;
-        }
-        cerr << s_iv << endl;
-        for (size_t i = 0; i < s_iv.size(); ++i) {
-            cerr << revdna3bit(s_iv[i]);
-        } cerr << endl;
-        cerr << s_bv << endl;
-        cerr << "paths (" << paths.size() << ")" << endl;
-        for (size_t i = 0; i < paths.size(); i++) {
-            // Go through paths by number, so we can determine rank
-            XGPath* path = paths[i];
-            cerr << get_path_name(as_path_handle(i + 1)) << endl;
-            // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
-            for (size_t j = 0; j + 1 < path->handles.size(); j++) {
-                cerr << get_id(path->handle(j)) << " ";
-            }
-            if (path->handles.size() > 0) {
-                cerr << get_id(path->handle(path->handles.size() - 1));
-            }
-            cerr << endl;
-            cerr << path->offsets << endl;
-        }
-        cerr << np_bv << endl;
-        cerr << np_iv << endl;
-        cerr << nx_iv << endl;
-        
+    bool do_print_graph = false;
+#ifdef debug_print_graph
+    do_print_graph = true;
+#endif
+    if (do_print_graph) {
+        print_graph();
     }
 
+}
+
+void XG::print_graph() const {
+    cerr << "printing graph" << endl;
+    // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
+    for (size_t i = 0; i < g_iv.size(); ++i) {
+        cerr << (int64_t)g_iv[i] << " ";
+    } cerr << endl;
+    for (int64_t i = 0; i < node_count; ++i) {
+        int64_t id = rank_to_id(i+1);
+        // find the start of the node's record in g_iv
+        int64_t g = g_bv_select(id_to_rank(id));
+        // get to the edges to
+        int edges_left_count = g_iv[g+G_NODE_LEFT_COUNT_OFFSET];
+        int edges_right_count = g_iv[g+G_NODE_RIGHT_COUNT_OFFSET];
+        int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
+        size_t seq_start = g_iv[g+G_NODE_SEQ_START_OFFSET];
+        cerr << id << " ";
+        for (int64_t j = seq_start; j < seq_start+sequence_size; ++j) {
+            cerr << revdna3bit(s_iv[j]);
+        } cerr << " : ";
+        int64_t l = g + G_NODE_HEADER_LENGTH;
+        int64_t r = g + G_NODE_HEADER_LENGTH + edges_left_count;
+        cerr << " left ";
+        for (int64_t j = l; j < r; ++j) {
+            cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
+        }
+        cerr << " right ";
+        for (int64_t j = r; j < r + edges_right_count; ++j) {
+            cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
+        }
+        cerr << endl;
+    }
+    cerr << s_iv << endl;
+    for (size_t i = 0; i < s_iv.size(); ++i) {
+        cerr << revdna3bit(s_iv[i]);
+    } cerr << endl;
+    cerr << s_bv << endl;
+    cerr << "paths (" << paths.size() << ")" << endl;
+    for (size_t i = 0; i < paths.size(); i++) {
+        // Go through paths by number, so we can determine rank
+        XGPath* path = paths[i];
+        cerr << get_path_name(as_path_handle(i + 1)) << endl;
+        // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
+        for (size_t j = 0; j + 1 < path->handles.size(); j++) {
+            cerr << get_id(path->handle(j)) << " ";
+        }
+        if (path->handles.size() > 0) {
+            cerr << get_id(path->handle(path->handles.size() - 1));
+        }
+        cerr << endl;
+        cerr << path->offsets << endl;
+    }
+    cerr << np_bv << endl;
+    cerr << np_iv << endl;
+    cerr << nx_iv << endl;
 }
 
 bool XG::edge_orientation(const uint64_t& raw_edge) {
@@ -1637,7 +1648,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
         size_t num_edges = num_to + num_from;
         
 #ifdef VERBOSE_DEBUG
-        cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << "'from' edges and " << num_to << "'to' edges" << endl;
+        cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << " 'from' edges and " << num_to << " 'to' edges" << endl;
 #endif
         
         // recount the edges as either left or right side instead of to or from
