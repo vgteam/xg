@@ -1246,10 +1246,10 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     for (size_t i = 0; i < paths.size(); i++) {
         // Go through paths by number, so we can determine rank
         XGPath* path = paths[i];
-        path_ids_mb_size += size_in_mega_bytes(path->ids);
-        path_dir_mb_size += size_in_mega_bytes(path->directions);
-        path_pos_mb_size += size_in_mega_bytes(path->positions);
-        path_ranks_mb_size += size_in_mega_bytes(path->ranks);
+//        path_ids_mb_size += size_in_mega_bytes(path->ids);
+//        path_dir_mb_size += size_in_mega_bytes(path->directions);
+//        path_pos_mb_size += size_in_mega_bytes(path->positions);
+//        path_ranks_mb_size += size_in_mega_bytes(path->ranks);
         path_offsets_mb_size += size_in_mega_bytes(path->offsets);
     }
     cerr << "path ids size " << path_ids_mb_size << endl;
@@ -1602,7 +1602,15 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
     sdsl::util::assign(g_iv, sdsl::int_vector<>(g_iv_size));
     sdsl::util::assign(g_bv, sdsl::bit_vector(g_iv_size));
     
+#ifdef VERBOSE_DEBUG
+    cerr << "converting g vector for graph with " << node_count << " nodes and " << total_num_edges << " edges" << endl;
+#endif
+    
     for (size_t old_g_idx = 0, new_g_idx = 0; new_g_idx < g_iv.size(); ) {
+#ifdef VERBOSE_DEBUG
+        cerr << "transfering node info from old index " << old_g_idx << " to new index " << new_g_idx << endl;
+#endif
+        
         // record the new start position in the g vector
         g_bv[new_g_idx] = 1;
         // copy over the fields that are unchanged between old and new
@@ -1610,8 +1618,8 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
         g_iv[new_g_idx + G_NODE_SEQ_START_OFFSET] = old_g_iv[old_g_idx + G_NODE_SEQ_START_OFFSET];
         g_iv[new_g_idx + G_NODE_LENGTH_OFFSET] = old_g_iv[old_g_idx + G_NODE_LENGTH_OFFSET];
         // ignore the left/right edge counts on this pass
-        size_t num_edges = (old_g_iv[old_g_idx + G_NODE_LEFT_COUNT_OFFSET]
-                            + old_g_iv[old_g_idx + G_NODE_RIGHT_COUNT_OFFSET]);
+        size_t num_edges = (old_g_iv[old_g_idx + OLD_G_NODE_FROM_COUNT_OFFSET]
+                            + old_g_iv[old_g_idx + OLD_G_NODE_TO_COUNT_OFFSET]);
         
         new_g_idx += G_NODE_HEADER_LENGTH + num_edges;
         old_g_idx += G_NODE_HEADER_LENGTH + num_edges * OLD_G_EDGE_LENGTH;
@@ -1627,6 +1635,10 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
         size_t num_from = old_g_iv[old_g_idx + OLD_G_NODE_FROM_COUNT_OFFSET];
         size_t num_to = old_g_iv[old_g_idx + OLD_G_NODE_TO_COUNT_OFFSET];
         size_t num_edges = num_to + num_from;
+        
+#ifdef VERBOSE_DEBUG
+        cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << "'from' edges and " << num_to << "'to' edges" << endl;
+#endif
         
         // recount the edges as either left or right side instead of to or from
         size_t num_left = 0, num_right = 0;
@@ -1655,6 +1667,10 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
             }
         }
         
+#ifdef VERBOSE_DEBUG
+        cerr << "translates to " << num_left << " left edges and " << num_right << " right edges" << endl;
+#endif
+        
         // record the left/right counts
         g_iv[new_g_idx + G_NODE_LEFT_COUNT_OFFSET] = num_left;
         g_iv[new_g_idx + G_NODE_RIGHT_COUNT_OFFSET] = num_right;
@@ -1674,6 +1690,10 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
             size_t old_g_nbr_idx = old_g_idx + old_g_iv[i + OLD_G_EDGE_OFFSET_OFFSET];
             // translate that offset into the new vector using rank/select
             size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
+            
+#ifdef VERBOSE_DEBUG
+            cerr << "\told 'from' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
+#endif
             
             if (from_rev) {
                 g_iv[next_left_idx] = encode_edge(new_g_idx, new_g_nbr_idx, !to_rev);
@@ -1695,6 +1715,10 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::b
             size_t old_g_nbr_idx = old_g_idx + old_g_iv[i + OLD_G_EDGE_OFFSET_OFFSET];
             // translate that offset into the new vector using rank/select
             size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
+            
+#ifdef VERBOSE_DEBUG
+            cerr << "\told 'to' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
+#endif
             
             if (!to_rev) {
                 g_iv[next_left_idx] = encode_edge(new_g_idx, new_g_nbr_idx, from_rev);

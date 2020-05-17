@@ -467,8 +467,8 @@ private:
                                 const bool& to_rev);
     
     // Historical edge offsets and constants for converting from old graphs
-    const static int OLD_G_NODE_FROM_COUNT_OFFSET = 3;
-    const static int OLD_G_NODE_TO_COUNT_OFFSET = 4;
+    const static int OLD_G_NODE_TO_COUNT_OFFSET = 3;
+    const static int OLD_G_NODE_FROM_COUNT_OFFSET = 4;
     const static int OLD_G_EDGE_OFFSET_OFFSET = 0;
     const static int OLD_G_EDGE_TYPE_OFFSET = 1;
     const static int OLD_G_EDGE_LENGTH = 2;
