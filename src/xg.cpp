@@ -12,8 +12,6 @@
 #include "gfakluge.hpp"
 
 //#define VERBOSE_DEBUG
-//#define debug_algorithms
-//#define debug_component_index
 //#define debug_path_index
 //#define DEBUG_CONSTRUCTION
 //#define debug_print_graph
@@ -166,22 +164,24 @@ void XG::deserialize_members(std::istream& in) {
                 }
                 r_iv.load(in);
                 
+                // if we've rejiggered the offsets in the g vector we need to
+                // hold onto the rank vector to translate offsets throughout
+                // the deserialization
+                sdsl::rank_support_v<1> old_g_bv_rank;
+                sdsl::bit_vector old_g_bv;
+                
                 if (file_version <= 14) {
                     // we need to reencode the old g vector with the new edges
                     sdsl::int_vector<> old_giv;
-                    sdsl::bit_vector old_g_bv;
-                    sdsl::rank_support_v<1> old_g_bv_rank;
-                    
                     old_giv.load(in);
                     old_g_bv.load(in);
                     old_g_bv_rank.load(in, &old_g_bv);
                     {
-                        // we don't actually need this for the conversion, so just skip over it
+                        // we don't actually need the select vector, load and discard it
                         sdsl::bit_vector::select_1_type old_g_bv_select;
                         old_g_bv_select.load(in, &old_g_bv);
                     }
-                    
-                    reencode_old_g_vector(old_giv, old_g_bv, old_g_bv_rank);
+                    reencode_old_g_vector(old_giv, old_g_bv_rank);
                 }
                 else {
                     // we can load the up-to-date g vector encoding
@@ -252,6 +252,12 @@ void XG::deserialize_members(std::istream& in) {
                     }
                     else {
                         path->load(in);
+                    }
+                    if (file_version > 12 && file_version <= 14) {
+                        // the paths consist of handles, but we've changed
+                        // the offsets of items in the g vector, so we need
+                        // to resync
+                        path->sync_offsets(old_g_bv_rank, g_bv_select);
                     }
                     paths.push_back(path);
                 }
@@ -344,6 +350,34 @@ void XGPath::load(std::istream& in) {
     offsets_rank.load(in, &offsets);
     offsets_select.load(in, &offsets);
     sdsl::read_member(is_circular, in);    
+}
+
+void XGPath::sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
+                          const sdsl::bit_vector::select_1_type& g_bv_select) {
+    
+    // make a temporary vector to hold uncompressed handles
+    sdsl::int_vector<> handles_iv;
+    sdsl::util::assign(handles_iv, sdsl::int_vector<>(handles.size()));
+    
+    // sync the offsets and compute the minimum handle
+    uint64_t new_min_handle = numeric_limits<uint64_t>::max();
+    for (size_t i = 0; i < handles.size(); ++i) {
+        handle_t old_handle = handle(i);
+        size_t old_offset = number_bool_packing::unpack_number(old_handle);
+        size_t new_offset = g_bv_select(old_g_bv_rank(old_offset) + 1);
+        handle_t new_handle = number_bool_packing::pack(new_offset,
+                                                        number_bool_packing::unpack_bit(old_handle));
+        handles_iv[i] = as_integer(new_handle);
+        new_min_handle = min<uint64_t>(new_min_handle, as_integer(new_handle));
+    }
+    // apply the min handle offset
+    min_handle = as_handle(new_min_handle);
+    for (size_t i = 0; i < handles_iv.size(); ++i) {
+        handles_iv[i] -= new_min_handle;
+    }
+    
+    // compress the new handle vector and replace the old one
+    sdsl::util::assign(handles, sdsl::enc_vector<>(handles_iv));
 }
 
 void XGPath::load_from_old_version(std::istream& in, uint32_t file_version, const XG& graph) {
@@ -1603,8 +1637,7 @@ void XG::orientation_from_old_edge_type(int type, bool& from_rev, bool& to_rev) 
     }
 }
 
-void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::bit_vector& old_g_bv,
-                               const sdsl::rank_support_v<1>& old_g_bv_rank) {
+void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::rank_support_v<1>& old_g_bv_rank) {
     
     size_t total_num_edges = (old_g_iv.size() - G_NODE_HEADER_LENGTH * node_count) / OLD_G_EDGE_LENGTH;
     

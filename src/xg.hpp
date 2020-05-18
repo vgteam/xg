@@ -481,7 +481,6 @@ private:
     void orientation_from_old_edge_type(int type, bool& from_rev, bool& to_rev) const;
     // Translate vectors in old encoding to the new one
     void reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv,
-                               const sdsl::bit_vector& old_g_bv,
                                const sdsl::rank_support_v<1>& old_g_bv_rank);
     
     // Use memmapped indexing to construct the node-to-path indexes once
@@ -566,6 +565,8 @@ public:
     bool is_circular = false;
     void load(std::istream& in);
     void load_from_old_version(std::istream& in, uint32_t file_version, const XG& graph);
+    void sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
+                      const sdsl::bit_vector::select_1_type& g_bv_select);
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
