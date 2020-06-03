@@ -153,7 +153,6 @@ void XG::deserialize_members(std::istream& in) {
                 sdsl::read_member(edge_count, in);
                 sdsl::read_member(path_count, in);
                 size_t entity_count = node_count + edge_count;
-                //cerr << sequence_length << ", " << node_count << ", " << edge_count << endl;
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
                 
@@ -259,6 +258,7 @@ void XG::deserialize_members(std::istream& in) {
                         // to resync
                         path->sync_offsets(old_g_bv_rank, g_bv_select);
                     }
+                    
                     paths.push_back(path);
                 }
                 
@@ -337,7 +337,7 @@ void XG::deserialize_members(std::istream& in) {
         std::cerr << "error [xg]: Unexpected error parsing XG data. Is it in version " << file_version << " XG format?" << std::endl;
         throw e;
     }
-#ifdef VERBOSE_DEBUG
+#ifdef debug_print_graph
     cerr << "printing deserialized graph" << endl;
     print_graph();
 #endif
@@ -554,9 +554,7 @@ XGPath::XGPath(const std::string& path_name,
     sdsl::bit_vector offsets_bv;
     sdsl::util::assign(offsets_bv, sdsl::bit_vector(path_length));
 
-    //cerr << "path " << path_name << " has " << path.size() << endl;
     for (size_t i = 0; i < path.size(); ++i) {
-        //cerr << i << endl;
         auto& handle = path[i];
         // record position of node
         offsets_bv[path_off] = 1;
@@ -1299,13 +1297,9 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 
 #endif
 
-    bool do_print_graph = false;
 #ifdef debug_print_graph
-    do_print_graph = true;
+    print_graph();
 #endif
-    if (do_print_graph) {
-        print_graph();
-    }
 
 }
 
@@ -1652,7 +1646,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
     
     for (size_t old_g_idx = 0, new_g_idx = 0; new_g_idx < g_iv.size(); ) {
 #ifdef VERBOSE_DEBUG
-        cerr << "transfering node info from old index " << old_g_idx << " to new index " << new_g_idx << endl;
+        cerr << "transfering node info for node " << old_g_iv[old_g_idx + G_NODE_ID_OFFSET] << " from old index " << old_g_idx << " to new index " << new_g_idx << endl;
 #endif
         
         // record the new start position in the g vector
@@ -1668,7 +1662,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
         new_g_idx += G_NODE_HEADER_LENGTH + num_edges;
         old_g_idx += G_NODE_HEADER_LENGTH + num_edges * OLD_G_EDGE_LENGTH;
     }
-    
+        
     // set up the new rank/selects
     sdsl::util::assign(g_bv_rank, sdsl::rank_support_v<1>(&g_bv));
     sdsl::util::assign(g_bv_select, sdsl::bit_vector::select_1_type(&g_bv));
@@ -1687,19 +1681,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
         // recount the edges as either left/right instead of to/from
         size_t num_left = 0, num_right = 0;
         size_t begin = old_g_idx + G_NODE_HEADER_LENGTH;
-        size_t end = begin + num_from * OLD_G_EDGE_LENGTH;
-        for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
-            bool from_rev, to_rev;
-            orientation_from_old_edge_type(old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET], from_rev, to_rev);
-            if (from_rev) {
-                ++num_left;
-            }
-            else {
-                ++num_right;
-            }
-        }
-        begin = end;
-        end = begin + num_to * OLD_G_EDGE_LENGTH;
+        size_t end = begin + num_to * OLD_G_EDGE_LENGTH;
         for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
             bool from_rev, to_rev;
             orientation_from_old_edge_type(old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET], from_rev, to_rev);
@@ -1708,6 +1690,18 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
             }
             else {
                 ++num_left;
+            }
+        }
+        begin = end;
+        end = begin + num_from * OLD_G_EDGE_LENGTH;
+        for (size_t i = begin; i < end; i += OLD_G_EDGE_LENGTH) {
+            bool from_rev, to_rev;
+            orientation_from_old_edge_type(old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET], from_rev, to_rev);
+            if (from_rev) {
+                ++num_left;
+            }
+            else {
+                ++num_right;
             }
         }
         
@@ -1777,7 +1771,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
         new_g_idx += G_NODE_HEADER_LENGTH + num_edges;
         old_g_idx += G_NODE_HEADER_LENGTH + num_edges * OLD_G_EDGE_LENGTH;
     }
-    
+        
     sdsl::util::bit_compress(g_iv);
 }
 
