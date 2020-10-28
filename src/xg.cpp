@@ -1045,11 +1045,19 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     sdsl::util::assign(pn_bv_rank, sdsl::rank_support_v<1>(&pn_bv));
     sdsl::util::assign(pn_bv_select, sdsl::bit_vector::select_1_type(&pn_bv));
     
-    // is this file removed by construct?
-    string path_name_file = basename + ".pathnames.iv";
-    sdsl::store_to_file((const char*)path_names.c_str(), path_name_file);
-    sdsl::construct(pn_csa, path_name_file, 1);
-    std::remove(path_name_file.c_str());
+    // By default, SDSL uses the working directory for temporary files. Getting around it is
+    // somewhat complicated.
+    sdsl::cache_config config;
+    config.dir = temp_file::get_dir();
+    {
+        sdsl::int_vector_buffer<8> text(sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), std::ios::out);
+        for (char c : path_names) {
+            text.push_back(c);
+        }
+        text.push_back(0); // CSA construction needs an endmarker.
+    }
+    sdsl::register_cache_file(sdsl::conf::KEY_TEXT, config);
+    sdsl::construct(pn_csa, sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), config, 1);
 
 #ifdef VERBOSE_DEBUG
     cerr << "computing node to path membership" << endl;
