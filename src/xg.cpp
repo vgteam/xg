@@ -910,8 +910,8 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     std::string edge_right_side_idx = basename + ".right.mm";
     auto edge_left_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_left_side_idx);
     auto edge_right_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_right_side_idx);
-    edge_left_side_mm->open_writers();
-    edge_right_side_mm->open_writers();
+    edge_left_side_mm->open_writer();
+    edge_right_side_mm->open_writer();
     size_t num_reversing_self_edges = 0;
     for_each_edge([&](const nid_t& from_id, const bool& from_rev, const nid_t& to_id, const bool& to_rev) {
         if (from_rev) {
@@ -938,8 +938,8 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
         }
     });
     handle_t max_handle = number_bool_packing::pack(r_iv.size(), true);
-    edge_left_side_mm->index(as_integer(max_handle));
-    edge_right_side_mm->index(as_integer(max_handle));
+    edge_left_side_mm->index(get_thread_count(), as_integer(max_handle));
+    edge_right_side_mm->index(get_thread_count(), as_integer(max_handle));
 
     // calculate g_iv size (header + edges stored twice, except reversing self edges)
     size_t g_iv_size = node_count * G_NODE_HEADER_LENGTH + (edge_count * 2 - num_reversing_self_edges);
@@ -1396,7 +1396,7 @@ void XG::index_node_to_path(const std::string& basename) {
     // use the mmmultimap...
     std::string node_path_idx = basename + ".node_path.mm";
     auto node_path_mm = std::make_unique<mmmulti::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>>(node_path_idx);
-    node_path_mm->open_writers();
+    node_path_mm->open_writer();
     uint64_t path_step_count = 0;
     // for each path...
     // could be done in parallel
@@ -1437,7 +1437,7 @@ void XG::index_node_to_path(const std::string& basename) {
 #ifdef VERBOSE_DEBUG
     std::cerr << path_count << " of " << path_count << " ~ 100.0000%" << std::endl;
 #endif
-    node_path_mm->index(node_count+1);
+    node_path_mm->index(get_thread_count(), node_count+1);
     
 #ifdef VERBOSE_DEBUG
     std::cerr << "determining size of node to path position mappings" << std::endl;
