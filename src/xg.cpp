@@ -1564,12 +1564,7 @@ void XG::to_gfa(std::ostream& out) const {
                     out << get_id(h) << (get_is_reverse(h)?"-":"+");
                     if (has_next_step(step)) out << ",";
                 });
-            out << "\t";
-            for_each_step_in_path(p, [this,&out](const step_handle_t& step) {
-                    out << get_length(get_handle_of_step(step)) << "M";
-                    if (has_next_step(step)) out << ",";
-                });
-            out << std::endl;
+            out << "\t" << "*" << std::endl;
         });
 }
 
