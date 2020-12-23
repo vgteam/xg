@@ -909,8 +909,8 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // we use the mmmultimap here to reduce in-memory costs to a minimum
     std::string edge_left_side_idx = basename + ".left.mm";
     std::string edge_right_side_idx = basename + ".right.mm";
-    auto edge_left_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_left_side_idx);
-    auto edge_right_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_right_side_idx);
+    auto edge_left_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_left_side_idx, 0);
+    auto edge_right_side_mm = std::make_unique<mmmulti::map<uint64_t, uint64_t>>(edge_right_side_idx, 0);
     edge_left_side_mm->open_writer();
     edge_right_side_mm->open_writer();
     size_t num_reversing_self_edges = 0;
@@ -1407,7 +1407,7 @@ void XG::index_node_to_path(const std::string& basename) {
     // node -> paths
     // use the mmmultimap...
     std::string node_path_idx = basename + ".node_path.mm";
-    auto node_path_mm = std::make_unique<mmmulti::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>>(node_path_idx);
+    auto node_path_mm = std::make_unique<mmmulti::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>>(node_path_idx, std::make_tuple(0,0,0));
     node_path_mm->open_writer();
     uint64_t path_step_count = 0;
     // for each path...
@@ -1557,7 +1557,6 @@ void XG::to_gfa(std::ostream& out) const {
                 });
         });
     for_each_path_handle([&out,this](const path_handle_t& p) {
-            //step_handle_t step = path_begin(p);
             out << "P\t" << get_path_name(p) << "\t";
             for_each_step_in_path(p, [this,&out](const step_handle_t& step) {
                     handle_t h = get_handle_of_step(step);
@@ -2031,7 +2030,7 @@ bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
 #pragma omp single 
             {
                 // We need to do a serial scan of the g vector because each entry is variable size.
-                for (size_t g = 0; g < g_iv.size() && !stop_early;) {
+                for (size_t g = 0; g + G_NODE_HEADER_LENGTH < g_iv.size() && !stop_early;) {
                     // Make it into a handle, packing it as the node ID and using 0 for orientation
                     handle_t handle = handlegraph::number_bool_packing::pack(g, false);
                 
@@ -2054,7 +2053,7 @@ bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
             // The end of the single block waits for all the tasks 
         }
     } else {
-        for (size_t g = 0; g < g_iv.size() && !stop_early;) {
+        for (size_t g = 0; g + G_NODE_HEADER_LENGTH < g_iv.size() && !stop_early;) {
             // Make it into a handle, packing it as the node ID and using 0 for orientation
             handle_t handle = handlegraph::number_bool_packing::pack(g, false);
             
