@@ -2030,7 +2030,7 @@ bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
 #pragma omp single 
             {
                 // We need to do a serial scan of the g vector because each entry is variable size.
-                for (size_t g = 0; g + G_NODE_HEADER_LENGTH < g_iv.size() && !stop_early;) {
+                for (size_t g = 0; g + G_NODE_HEADER_LENGTH <= g_iv.size() && !stop_early;) {
                     // Make it into a handle, packing it as the node ID and using 0 for orientation
                     handle_t handle = handlegraph::number_bool_packing::pack(g, false);
                 
@@ -2053,7 +2053,7 @@ bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
             // The end of the single block waits for all the tasks 
         }
     } else {
-        for (size_t g = 0; g + G_NODE_HEADER_LENGTH < g_iv.size() && !stop_early;) {
+        for (size_t g = 0; g + G_NODE_HEADER_LENGTH <= g_iv.size() && !stop_early;) {
             // Make it into a handle, packing it as the node ID and using 0 for orientation
             handle_t handle = handlegraph::number_bool_packing::pack(g, false);
             
