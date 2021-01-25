@@ -86,6 +86,9 @@ ExternalProject_Add(mmmulti
 ExternalProject_Get_property(mmmulti SOURCE_DIR)
 set(mmmulti_INCLUDE "${SOURCE_DIR}/src")
 
+# mio (headers used by mmmulti)
+set(mio_INCLUDE "${CMAKE_SOURCE_DIR}/deps/mmmulti/deps/mio/include")
+
 # In-place Parallel Super Scalar Samplesort (IPS⁴o), header only
 ExternalProject_Add(ips4o
   SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/ips4o"
@@ -169,6 +172,7 @@ set(xg_INCLUDES
   "${tayweeargs_INCLUDE}"
   "${ips4o_INCLUDE}"
   "${mmmulti_INCLUDE}"
+  "${mio_INCLUDE}"
   "${atomicqueue_INCLUDE}"
   "${gfakluge_INCLUDE}"
   "${gfakluge_tinyFA_INCLUDE}")
