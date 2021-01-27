@@ -263,7 +263,7 @@ void XG::deserialize_members(std::istream& in) {
                     if (num_path_names > 0) {
                         // we now have 1 fewer separator between path names
                         size_t pn_size = old_pn_iv.size() - (num_path_names - 1);
-                        sdsl::util::assign(pn_iv, sdsl::int_vector<>(new_pn_size));
+                        sdsl::util::assign(pn_iv, sdsl::int_vector<>(pn_size));
                         
                         // convert start/end characters to single delimiters
                         for (size_t i = 0, j = 0; i < old_pn_iv.size(); ++i) {
