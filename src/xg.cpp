@@ -1555,7 +1555,7 @@ void XG::index_node_to_path(const std::string& basename) {
 
 void XG::index_path_names() {
     
-    sdsl::util::assign(pn_bv, sdsl::bit_vector(path_names.size()));
+    sdsl::util::assign(pn_bv, sdsl::bit_vector(pn_iv.size()));
     for (size_t i = 0; i < pn_iv.size(); ++i) {
         if (pn_iv[i] == path_name_csa_delim) {
             pn_bv[i] = 1; // register name start
