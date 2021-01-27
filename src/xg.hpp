@@ -412,7 +412,9 @@ public:
     size_t edge_index(const edge_t& edge) const;
     size_t get_g_iv_size(void) const;
 
-    char path_name_csa_delim = '$';
+    static const char path_name_csa_delim;
+    static const char old_version_path_name_start;
+    static const char old_version_path_name_end;
 
 private:
 
@@ -482,6 +484,8 @@ private:
     void reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv,
                                const sdsl::rank_support_v<1>& old_g_bv_rank);
     
+    // Create the path name CSA and bit vector from the path name int vector
+    void index_path_names();
     // Use memmapped indexing to construct the node-to-path indexes once
     // XGPath's have been created (used during construction)
     void index_node_to_path(const std::string& basename);
@@ -520,6 +524,7 @@ private:
     sdsl::bit_vector pn_bv;  // path name starts in uncompressed version of csa
     sdsl::rank_support_v<1> pn_bv_rank;
     sdsl::bit_vector::select_1_type pn_bv_select;
+    // TODO: this seems like it may no longer be used?
     sdsl::int_vector<> pi_iv; // path ids by rank in the path names
 
     std::vector<XGPath*> paths; // path structure
