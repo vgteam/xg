@@ -48,6 +48,11 @@ char revdna3bit(int i) {
     }
 }
 
+// static members
+const char XG::path_name_csa_delim = '$';
+const char XG::old_version_path_name_start = '#';
+const char XG::old_version_path_name_end = '$';
+
 XG::~XG(void) {
     // Clean up any created XGPaths
     while (!paths.empty()) {
@@ -235,11 +240,58 @@ void XG::deserialize_members(std::istream& in) {
                     }
                 }
                 
-                pn_iv.load(in);
-                pn_csa.load(in);
-                pn_bv.load(in);
-                pn_bv_rank.load(in, &pn_bv);
-                pn_bv_select.load(in, &pn_bv);
+                if (file_version <= 15) {
+                    // load and convert the path name vector with the new delimiters
+                    sdsl::int_vector<> old_pn_iv;
+                    old_pn_iv.load(in);
+                    size_t num_path_names = 0;
+                    // load and discard the CSA and bitvector, which we will recreate
+                    {
+                        sdsl::csa_wt<> old_pn_csa;
+                        old_pn_csa.load(in);
+                    }
+                    {
+                        sdsl::bit_vector old_pn_bv;
+                        sdsl::rank_support_v<1> old_pn_bv_rank;
+                        sdsl::bit_vector::select_1_type old_pn_bv_select;
+                        old_pn_bv.load(in);
+                        old_pn_bv_rank.load(in, &old_pn_bv);
+                        old_pn_bv_select.load(in, &old_pn_bv);
+                        // the bit vector contains one 1 per path name
+                        num_path_names = old_pn_bv_rank(old_pn_iv.size() - 1);
+                    }
+                    if (num_path_names > 0) {
+                        // we now have 1 fewer separator between path names
+                        size_t pn_size = old_pn_iv.size() - (num_path_names - 1);
+                        sdsl::util::assign(pn_iv, sdsl::int_vector<>(pn_size));
+                        
+                        // convert start/end characters to single delimiters
+                        for (size_t i = 0, j = 0; i < old_pn_iv.size(); ++i) {
+                            if (old_pn_iv[i] != old_version_path_name_end) {
+                                if (old_pn_iv[i] == old_version_path_name_start) {
+                                    pn_iv[j] = path_name_csa_delim;
+                                }
+                                else {
+                                    pn_iv[j] = old_pn_iv[i];
+                                }
+                                ++j;
+                            }
+                        }
+                        // add the final delimiter
+                        pn_iv[pn_size - 1] = path_name_csa_delim;
+                        sdsl::util::bit_compress(pn_iv);
+                    }
+                    // reconstruct the CSA and bitvector
+                    index_path_names();
+                }
+                else {
+                    pn_iv.load(in);
+                    pn_csa.load(in);
+                    pn_bv.load(in);
+                    pn_bv_rank.load(in, &pn_bv);
+                    pn_bv_select.load(in, &pn_bv);
+                }
+                
                 pi_iv.load(in);
                 sdsl::read_member(path_count, in);
                 for (size_t i = 0; i < path_count; ++i) {
@@ -1100,30 +1152,14 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 
     // handle path names
     sdsl::util::assign(pn_iv, sdsl::int_vector<>(path_names.size()));
-    sdsl::util::assign(pn_bv, sdsl::bit_vector(path_names.size()));
     // now record path name starts
     for (size_t i = 0; i < path_names.size(); ++i) {
         pn_iv[i] = path_names[i];
-        if (path_names[i] == path_name_csa_delim) {
-            pn_bv[i] = 1; // register name start
-        }
     }
-    sdsl::util::assign(pn_bv_rank, sdsl::rank_support_v<1>(&pn_bv));
-    sdsl::util::assign(pn_bv_select, sdsl::bit_vector::select_1_type(&pn_bv));
+    sdsl::util::bit_compress(pn_iv);
     
-    // By default, SDSL uses the working directory for temporary files. Getting around it is
-    // somewhat complicated.
-    sdsl::cache_config config;
-    config.dir = temp_file::get_dir();
-    {
-        sdsl::int_vector_buffer<8> text(sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), std::ios::out);
-        for (char c : path_names) {
-            text.push_back(c);
-        }
-        text.push_back(0); // CSA construction needs an endmarker.
-    }
-    sdsl::register_cache_file(sdsl::conf::KEY_TEXT, config);
-    sdsl::construct(pn_csa, sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), config, 1);
+    // build the support CSA and bit vector
+    index_path_names();
 
 #ifdef VERBOSE_DEBUG
     cerr << "computing node to path membership" << endl;
@@ -1515,6 +1551,32 @@ void XG::index_node_to_path(const std::string& basename) {
     sdsl::util::bit_compress(nr_iv);
     sdsl::util::bit_compress(nx_iv);
     sdsl::util::assign(np_bv_select, sdsl::bit_vector::select_1_type(&np_bv));
+}
+
+void XG::index_path_names() {
+    
+    sdsl::util::assign(pn_bv, sdsl::bit_vector(pn_iv.size()));
+    for (size_t i = 0; i < pn_iv.size(); ++i) {
+        if (pn_iv[i] == path_name_csa_delim) {
+            pn_bv[i] = 1; // register name start
+        }
+    }
+    sdsl::util::assign(pn_bv_rank, sdsl::rank_support_v<1>(&pn_bv));
+    sdsl::util::assign(pn_bv_select, sdsl::bit_vector::select_1_type(&pn_bv));
+    
+    // By default, SDSL uses the working directory for temporary files. Getting around it is
+    // somewhat complicated.
+    sdsl::cache_config config;
+    config.dir = temp_file::get_dir();
+    {
+        sdsl::int_vector_buffer<8> text(sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), std::ios::out);
+        for (auto c : pn_iv) {
+            text.push_back(c);
+        }
+        text.push_back(0); // CSA construction needs an endmarker.
+    }
+    sdsl::register_cache_file(sdsl::conf::KEY_TEXT, config);
+    sdsl::construct(pn_csa, sdsl::cache_file_name(sdsl::conf::KEY_TEXT, config), config, 1);
 }
 
 void XG::to_gfa(std::ostream& out) const {
