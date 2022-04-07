@@ -9,7 +9,9 @@
 
 #include <handlegraph/util.hpp>
 
+#ifndef NO_GFAKLUGE
 #include "gfakluge.hpp"
+#endif
 
 //#define VERBOSE_DEBUG
 //#define debug_path_index
@@ -742,6 +744,7 @@ void XG::dump_to_stream(std::ostream& out) const {
     out << "===END XG===" << std::endl;
 }
 
+#ifndef NO_GFAKLUGE
 void XG::from_gfa(const std::string& gfa_filename, bool validate, std::string basename) {
     char* filename = (char*)gfa_filename.c_str();
     gfak::GFAKluge gfa;
@@ -778,6 +781,7 @@ void XG::from_gfa(const std::string& gfa_filename, bool validate, std::string ba
     };
     from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, validate, basename);
 }
+#endif
 
 
 /// build the graph from another simple graph

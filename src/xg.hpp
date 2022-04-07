@@ -217,8 +217,10 @@ public:
                                                                             const bool& is_circular)>&)>& for_each_path_element,
                           bool validate = false, std::string basename = "");
 
+#ifndef NO_GFAKLUGE
     /// Use a memory-mapped GFA file to build the index in low memory
     void from_gfa(const std::string& gfa_filename, bool validate = false, std::string basename = "");
+#endif
 
     void to_gfa(std::ostream& out) const;
 
