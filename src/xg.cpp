@@ -393,7 +393,7 @@ void XG::deserialize_members(std::istream& in) {
         throw e;
     }
 #ifdef debug_print_graph
-    cerr << "printing deserialized graph" << endl;
+    std::cerr << "printing deserialized graph" << std::endl;
     print_graph();
 #endif
 }
@@ -415,7 +415,7 @@ void XGPath::sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
     sdsl::util::assign(handles_iv, sdsl::int_vector<>(handles.size()));
     
     // sync the offsets and compute the minimum handle
-    uint64_t new_min_handle = numeric_limits<uint64_t>::max();
+    uint64_t new_min_handle = std::numeric_limits<uint64_t>::max();
     for (size_t i = 0; i < handles.size(); ++i) {
         handle_t old_handle = handle(i);
         size_t old_offset = number_bool_packing::unpack_number(old_handle);
@@ -423,7 +423,7 @@ void XGPath::sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
         handle_t new_handle = number_bool_packing::pack(new_offset,
                                                         number_bool_packing::unpack_bit(old_handle));
         handles_iv[i] = as_integer(new_handle);
-        new_min_handle = min<uint64_t>(new_min_handle, as_integer(new_handle));
+        new_min_handle = std::min<uint64_t>(new_min_handle, as_integer(new_handle));
     }
     // apply the min handle offset
     min_handle = as_handle(new_min_handle);
@@ -470,10 +470,10 @@ void XGPath::load_from_old_version(std::istream& in, uint32_t file_version, cons
             sdsl::sd_vector<> directions;
             directions.load(in);
             // compute the minimum handle
-            min_handle = handlegraph::as_handle(numeric_limits<uint64_t>::max());
+            min_handle = handlegraph::as_handle(std::numeric_limits<uint64_t>::max());
             for (size_t i = 0; i < ids.size(); ++i) {
-                min_handle = as_handle(min(as_integer(min_handle),
-                                           as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i]))));
+                min_handle = as_handle(std::min(as_integer(min_handle),
+                                                as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i]))));
             }
             // convert the vector into a handle-based one with a min handle offset
             sdsl::util::assign(handles_iv, sdsl::int_vector<>(ids.size()));
@@ -656,18 +656,18 @@ handle_t XGPath::external_handle(const handle_t& handle) const {
     return as_handle(as_integer(handle)+as_integer(min_handle));
 }
 
-size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
+size_t XG::serialize_and_measure(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const {
     // TODO: this depends on SerializableHandleGraph's internals.
     uint32_t magic_number = htonl(get_magic_number());
     out.write((char*) &magic_number, sizeof(magic_number) / sizeof(char));
     return serialize_members_and_measure(out, s, name);
 }
 
-void XG::serialize_members(ostream& out) const {
+void XG::serialize_members(std::ostream& out) const {
     serialize_members_and_measure(out);
 }
 
-size_t XG::serialize_members_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
+size_t XG::serialize_members_and_measure(std::ostream& out, sdsl::structure_tree_node* s, std::string name) const {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;
@@ -862,7 +862,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     max_id = 0;
     // get information about graph size and id ranges
 #ifdef VERBOSE_DEBUG
-    cerr << "computing graph sequence length and node count" << endl;
+    std::cerr << "computing graph sequence length and node count" << std::endl;
 #endif
     for_each_sequence([&](const std::string& seq, const nid_t& id) {
         // min id starts at 0
@@ -879,7 +879,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
         ++node_count;
     });
 #ifdef VERBOSE_DEBUG
-    cerr << "counting edges" << endl;
+    std::cerr << "counting edges" << std::endl;
 #endif
     // edge count
     for_each_edge([&](const nid_t& from_id, const bool& from_rev, const nid_t& to_id, const bool& to_rev) {
@@ -888,7 +888,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // path count
     std::string pname;
 #ifdef VERBOSE_DEBUG
-    cerr << "counting paths" << endl;
+    std::cerr << "counting paths" << std::endl;
 #endif
     for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
             if (path_name != pname) {
@@ -914,7 +914,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // for each node in the sequence
     // concatenate the labels into the s_iv
 #ifdef VERBOSE_DEBUG
-    cerr << "storing node labels" << endl;
+    std::cerr << "storing node labels" << std::endl;
 #endif
     size_t r = 1;    
     // first make i_iv and r_iv
@@ -958,7 +958,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     };
 
 #ifdef VERBOSE_DEBUG
-    cerr << "collecting edges " << endl;
+    std::cerr << "collecting edges " << std::endl;
 #endif
     
     // first, we need to collect the edges for each node
@@ -1004,14 +1004,14 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     sdsl::util::assign(g_bv, sdsl::bit_vector(g_iv_size));
 
 #ifdef VERBOSE_DEBUG
-    cerr << "computing graph vector " << endl;
+    std::cerr << "computing graph vector " << std::endl;
 #endif
     
     int64_t g = 0; // pointer into g_iv and g_bv
     for (int64_t i = 0; i < node_count; ++i) {
         nid_t id = i_iv[i];
 #ifdef VERBOSE_DEBUG
-        if (i % 1000 == 0) cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
+        if (i % 1000 == 0) std::cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
 #endif
         handle_t handle = temp_get_handle(id, false);
         g_bv[g] = 1; // mark record start for later query
@@ -1050,7 +1050,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     sdsl::util::assign(g_bv_select, sdsl::bit_vector::select_1_type(&g_bv));
 
 #ifdef VERBOSE_DEBUG
-    cerr << "making graph vector relativistic " << endl;
+    std::cerr << "making graph vector relativistic " << std::endl;
 #endif
 
     // convert the edges in g_iv to relativistic form
@@ -1072,7 +1072,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     sdsl::util::bit_compress(g_iv);
 
 #ifdef VERBOSE_DEBUG
-    cerr << "storing paths" << endl;
+    std::cerr << "storing paths" << std::endl;
 #endif
     // paths
     std::string path_names;
@@ -1166,7 +1166,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     index_path_names();
 
 #ifdef VERBOSE_DEBUG
-    cerr << "computing node to path membership" << endl;
+    std::cerr << "computing node to path membership" << std::endl;
 #endif
     
     // create the node-to-path indexes
@@ -1310,30 +1310,30 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     }
 
 #ifdef DEBUG_CONSTRUCTION
-    cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
-    cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
-    cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
+    std::cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << std::endl;
+    std::cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << std::endl;
+    std::cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << std::endl;
 
-    cerr << "|r_iv| = " << size_in_mega_bytes(r_iv) << endl;
+    std::cerr << "|r_iv| = " << size_in_mega_bytes(r_iv) << std::endl;
 
-    cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << endl;
+    std::cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << std::endl;
     
     long double paths_mb_size = 0;
-    cerr << "|pn_iv| = " << size_in_mega_bytes(pn_iv) << endl;
+    std::cerr << "|pn_iv| = " << size_in_mega_bytes(pn_iv) << std::endl;
     paths_mb_size += size_in_mega_bytes(pn_iv);
-    cerr << "|pn_csa| = " << size_in_mega_bytes(pn_csa) << endl;
+    std::cerr << "|pn_csa| = " << size_in_mega_bytes(pn_csa) << std::endl;
     paths_mb_size += size_in_mega_bytes(pn_csa);
-    cerr << "|pn_bv| = " << size_in_mega_bytes(pn_bv) << endl;
+    std::cerr << "|pn_bv| = " << size_in_mega_bytes(pn_bv) << std::endl;
     paths_mb_size += size_in_mega_bytes(pn_bv);
     paths_mb_size += size_in_mega_bytes(pn_bv_rank);
     paths_mb_size += size_in_mega_bytes(pn_bv_select);
     paths_mb_size += size_in_mega_bytes(pi_iv);
-    cerr << "|np_iv| = " << size_in_mega_bytes(np_iv) << endl;
+    std::cerr << "|np_iv| = " << size_in_mega_bytes(np_iv) << std::endl;
     paths_mb_size += size_in_mega_bytes(np_iv);
-    cerr << "|np_bv| = " << size_in_mega_bytes(np_bv) << endl;
+    std::cerr << "|np_bv| = " << size_in_mega_bytes(np_bv) << std::endl;
     paths_mb_size += size_in_mega_bytes(np_bv);
     paths_mb_size += size_in_mega_bytes(np_bv_select);
-    cerr << "total paths size " << paths_mb_size << endl;
+    std::cerr << "total paths size " << paths_mb_size << std::endl;
 
     float path_ids_mb_size=0;
     float path_dir_mb_size=0;
@@ -1349,11 +1349,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 //        path_ranks_mb_size += size_in_mega_bytes(path->ranks);
         path_offsets_mb_size += size_in_mega_bytes(path->offsets);
     }
-    cerr << "path ids size " << path_ids_mb_size << endl;
-    cerr << "path directions size " << path_dir_mb_size << endl;
-    cerr << "path positions size " << path_pos_mb_size << endl;
-    cerr << "path ranks size " << path_ranks_mb_size << endl;
-    cerr << "path offsets size " << path_offsets_mb_size << endl;
+    std::cerr << "path ids size " << path_ids_mb_size << std::endl;
+    std::cerr << "path directions size " << path_dir_mb_size << std::endl;
+    std::cerr << "path positions size " << path_pos_mb_size << std::endl;
+    std::cerr << "path ranks size " << path_ranks_mb_size << std::endl;
+    std::cerr << "path offsets size " << path_offsets_mb_size << std::endl;
 
 #endif
 
@@ -1364,11 +1364,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 }
 
 void XG::print_graph() const {
-    cerr << "printing graph" << endl;
+    std::cerr << "printing graph" << std::endl;
     // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
     for (size_t i = 0; i < g_iv.size(); ++i) {
-        cerr << (int64_t)g_iv[i] << " ";
-    } cerr << endl;
+        std::cerr << (int64_t)g_iv[i] << " ";
+    } std::cerr << std::endl;
     for (int64_t i = 0; i < node_count; ++i) {
         int64_t id = rank_to_id(i+1);
         // find the start of the node's record in g_iv
@@ -1378,45 +1378,45 @@ void XG::print_graph() const {
         int edges_right_count = g_iv[g+G_NODE_RIGHT_COUNT_OFFSET];
         int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
         size_t seq_start = g_iv[g+G_NODE_SEQ_START_OFFSET];
-        cerr << id << " ";
+        std::cerr << id << " ";
         for (int64_t j = seq_start; j < seq_start+sequence_size; ++j) {
-            cerr << revdna3bit(s_iv[j]);
-        } cerr << " : ";
+            std::cerr << revdna3bit(s_iv[j]);
+        } std::cerr << " : ";
         int64_t l = g + G_NODE_HEADER_LENGTH;
         int64_t r = g + G_NODE_HEADER_LENGTH + edges_left_count;
-        cerr << " left ";
+        std::cerr << " left ";
         for (int64_t j = l; j < r; ++j) {
-            cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
+            std::cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
         }
-        cerr << " right ";
+        std::cerr << " right ";
         for (int64_t j = r; j < r + edges_right_count; ++j) {
-            cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
+            std::cerr << rank_to_id(g_bv_rank(g+edge_relative_offset(g_iv[j]))+1) << " ";
         }
-        cerr << endl;
+        std::cerr << std::endl;
     }
-    cerr << s_iv << endl;
+    std::cerr << s_iv << std::endl;
     for (size_t i = 0; i < s_iv.size(); ++i) {
-        cerr << revdna3bit(s_iv[i]);
-    } cerr << endl;
-    cerr << s_bv << endl;
-    cerr << "paths (" << paths.size() << ")" << endl;
+        std::cerr << revdna3bit(s_iv[i]);
+    } std::cerr << std::endl;
+    std::cerr << s_bv << std::endl;
+    std::cerr << "paths (" << paths.size() << ")" << std::endl;
     for (size_t i = 0; i < paths.size(); i++) {
         // Go through paths by number, so we can determine rank
         XGPath* path = paths[i];
-        cerr << get_path_name(as_path_handle(i + 1)) << endl;
+        std::cerr << get_path_name(as_path_handle(i + 1)) << std::endl;
         // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
         for (size_t j = 0; j + 1 < path->handles.size(); j++) {
-            cerr << get_id(path->handle(j)) << " ";
+            std::cerr << get_id(path->handle(j)) << " ";
         }
         if (path->handles.size() > 0) {
-            cerr << get_id(path->handle(path->handles.size() - 1));
+            std::cerr << get_id(path->handle(path->handles.size() - 1));
         }
-        cerr << endl;
-        cerr << path->offsets << endl;
+        std::cerr << std::endl;
+        std::cerr << path->offsets << std::endl;
     }
-    cerr << np_bv << endl;
-    cerr << np_iv << endl;
-    cerr << nx_iv << endl;
+    std::cerr << np_bv << std::endl;
+    std::cerr << np_iv << std::endl;
+    std::cerr << nx_iv << std::endl;
 }
 
 bool XG::edge_orientation(const uint64_t& raw_edge) {
@@ -1497,7 +1497,7 @@ void XG::index_node_to_path(const std::string& basename) {
     uint64_t np_size = 0;
     for (int64_t i = 0; i < node_count; ++i) {
 #ifdef VERBOSE_DEBUG
-        if (i % 1000 == 0) cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
+        if (i % 1000 == 0) std::cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
 #endif
         uint64_t has_steps = false;
         node_path_mm->for_values_of(i+1, [&](const std::tuple<uint64_t, uint64_t, uint64_t>& v) {
@@ -1520,7 +1520,7 @@ void XG::index_node_to_path(const std::string& basename) {
     uint64_t np_offset = 0;
     for (int64_t i = 0; i < node_count; ++i) {
 #ifdef VERBOSE_DEBUG
-        if (i % 1000 == 0) cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
+        if (i % 1000 == 0) std::cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
 #endif
         np_bv[np_offset] = 1; // mark node start
         //uint64_t idx = number_bool_packing::pack(i, false)+1;
@@ -1591,7 +1591,7 @@ void XG::to_gfa(std::ostream& out) const {
             out << "S\t" << node_id << "\t" << get_sequence(h);
             std::vector<std::string> path_pos;
             for_each_step_position_on_handle(h, [&](const step_handle_t& step, const bool& rev, const uint64_t& pos) {
-                    stringstream ss;
+                    std::stringstream ss;
                     ss << "[\"" << get_path_name(as_path_handle(as_integers(step)[0])) << "\"," << (rev ? "\"-\"" : "\"+\"") << "," << pos << "]";
                     path_pos.push_back(ss.str());
                     return true;
@@ -1660,10 +1660,10 @@ std::string XG::pos_substr(nid_t id, bool is_rev, size_t off, size_t len) const 
         if (!len) {
             end = s_bv_select(rank+1);
         } else {
-            end = min(start + len, (size_t)s_bv_select(rank+1));
+            end = std::min(start + len, (size_t)s_bv_select(rank+1));
         }
         assert(end < s_iv.size());
-        string s; s.resize(end-start);
+        std::string s; s.resize(end-start);
         for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
@@ -1677,10 +1677,10 @@ std::string XG::pos_substr(nid_t id, bool is_rev, size_t off, size_t len) const 
         if (len > end || !len) {
             start = s_bv_select(rank);
         } else {
-            start = max(end - len, (size_t)s_bv_select(rank));
+            start = std::max(end - len, (size_t)s_bv_select(rank));
         }
         assert(end < s_iv.size());
-        string s; s.resize(end-start);
+        std::string s; s.resize(end-start);
         for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
@@ -1722,12 +1722,12 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
     sdsl::util::assign(g_bv, sdsl::bit_vector(g_iv_size));
     
 #ifdef VERBOSE_DEBUG
-    cerr << "converting g vector for graph with " << node_count << " nodes and " << total_num_edges << " edges" << endl;
+    std::cerr << "converting g vector for graph with " << node_count << " nodes and " << total_num_edges << " edges" << std::endl;
 #endif
     
     for (size_t old_g_idx = 0, new_g_idx = 0; new_g_idx < g_iv.size(); ) {
 #ifdef VERBOSE_DEBUG
-        cerr << "transfering node info for node " << old_g_iv[old_g_idx + G_NODE_ID_OFFSET] << " from old index " << old_g_idx << " to new index " << new_g_idx << endl;
+        std::cerr << "transfering node info for node " << old_g_iv[old_g_idx + G_NODE_ID_OFFSET] << " from old index " << old_g_idx << " to new index " << new_g_idx << std::endl;
 #endif
         
         // record the new start position in the g vector
@@ -1756,7 +1756,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
         size_t num_edges = num_to + num_from;
         
 #ifdef VERBOSE_DEBUG
-        cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << " 'from' edges and " << num_to << " 'to' edges" << endl;
+        std::cerr << "updating edges for old index " << old_g_idx << " to new index " << new_g_idx << " with " << num_from << " 'from' edges and " << num_to << " 'to' edges" << std::endl;
 #endif
         
         // recount the edges as either left/right instead of to/from
@@ -1787,7 +1787,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
         }
         
 #ifdef VERBOSE_DEBUG
-        cerr << "translates to " << num_left << " left edges and " << num_right << " right edges" << endl;
+        std::cerr << "translates to " << num_left << " left edges and " << num_right << " right edges" << std::endl;
 #endif
         
         // record the left/right counts
@@ -1811,7 +1811,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
             size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
             
 #ifdef VERBOSE_DEBUG
-            cerr << "\told 'to' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
+            std::cerr << "\told 'to' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << std::endl;
 #endif
             
             if (!to_rev) {
@@ -1836,7 +1836,7 @@ void XG::reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv, const sdsl::r
             size_t new_g_nbr_idx = g_bv_select(old_g_bv_rank(old_g_nbr_idx) + 1);
             
 #ifdef VERBOSE_DEBUG
-            cerr << "\told 'from' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << endl;
+            std::cerr << "\told 'from' edge with type " << old_g_iv[i + OLD_G_EDGE_TYPE_OFFSET] << " and neighbor at " << old_g_nbr_idx << " now has neighbor " << new_g_nbr_idx << " with to_rev=" << to_rev << " and from_rev=" << from_rev << std::endl;
 #endif
             
             if (from_rev) {
@@ -1943,11 +1943,11 @@ size_t XG::handle_rank(const handle_t& handle) const {
 
 nid_t XG::rank_to_id(const size_t& rank) const {
     if(rank == 0) {
-        cerr << "[xg] error: Request for id of rank 0" << endl;
+        std::cerr << "[xg] error: Request for id of rank 0" << std::endl;
         exit(1);
     }
     if(rank > node_count) {
-        cerr << "[xg] error: Request for id of rank " << rank << "/" << node_count << endl;
+        std::cerr << "[xg] error: Request for id of rank " << rank << "/" << node_count << std::endl;
         exit(1);
     }
     return g_iv[g_bv_select(rank)];
@@ -1960,14 +1960,14 @@ handle_t XG::get_handle(const nid_t& node_id, bool is_reverse) const {
     size_t node_rank = id_to_rank(node_id);
     
     if (node_rank == 0) {
-        throw runtime_error("Attempted to get handle for node " + std::to_string(node_id) + " not present in graph");
+        throw std::runtime_error("Attempted to get handle for node " + std::to_string(node_id) + " not present in graph");
     }
     
     // Where in the g vector do we need to be
     uint64_t g = g_bv_select(node_rank);
     
     if (g + G_NODE_HEADER_LENGTH > g_iv.size()) {
-        throw runtime_error("Handle for node " + std::to_string(node_id) + " with g vector offset " +
+        throw std::runtime_error("Handle for node " + std::to_string(node_id) + " with g vector offset " +
             std::to_string(g) + " is too close to end of g vector at " + std::to_string(g_iv.size()));
     }
     
@@ -1996,12 +1996,12 @@ size_t XG::get_length(const handle_t& handle) const {
     return g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_LENGTH_OFFSET];
 }
 
-string XG::get_sequence(const handle_t& handle) const {
+std::string XG::get_sequence(const handle_t& handle) const {
     
     // Figure out how big it should be
     size_t sequence_size = get_length(handle);
     // Allocate the sequence string
-    string sequence(sequence_size, '\0');
+    std::string sequence(sequence_size, '\0');
     // Extract the node record start
     size_t g = handlegraph::number_bool_packing::unpack_number(handle);
     // Figure out where the sequence starts
@@ -2032,17 +2032,17 @@ char XG::get_base(const handle_t& handle, size_t index) const {
     }
 }
 
-string XG::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+std::string XG::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
     
     // Figure out how big it should be
     size_t sequence_size = get_length(handle);
     // don't go past the end of the sequence
-    size = min(size, sequence_size - index);
+    size = std::min(size, sequence_size - index);
     // Figure out where the sequence starts
     size_t sequence_start = g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_SEQ_START_OFFSET];
 
     // Allocate the sequence string
-    string subsequence(size, '\0');
+    std::string subsequence(size, '\0');
     // unpack the sequence and handle orientation
     if (get_is_reverse(handle)) {
         for (size_t i = 0, subseq_start = sequence_start + get_length(handle) - index - size; i < size; ++i) {
@@ -2057,7 +2057,7 @@ string XG::get_subsequence(const handle_t& handle, size_t index, size_t size) co
     return subsequence;
 }
 
-bool XG::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool XG::follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
     
     // unpack the handle
     size_t g = handlegraph::number_bool_packing::unpack_number(handle);
@@ -2087,7 +2087,7 @@ bool XG::follow_edges_impl(const handle_t& handle, bool go_left, const function<
     return keep_going;
 }
 
-bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool XG::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // This shared flag lets us bail early even when running in parallel
     bool stop_early = false;
     if (parallel) {
@@ -2151,7 +2151,7 @@ path_handle_t XG::get_path_handle(const std::string& path_name) const {
     std::string query = path_name_csa_delim + path_name + path_name_csa_delim;
     auto occs = locate(pn_csa, query);
     if (occs.size() > 1) {
-        cerr << "error [xg]: multiple hits for " << query << endl;
+        std::cerr << "error [xg]: multiple hits for " << query << std::endl;
         exit(1);
     }
     if(occs.size() == 0) {
@@ -2166,7 +2166,7 @@ std::string XG::get_path_name(const path_handle_t& path_handle) const {
     uint64_t rank = as_integer(path_handle);
     size_t start = pn_bv_select(rank)+1; // step past '$'
     size_t end = pn_bv_select(rank+1);
-    string name; name.resize(end-start);
+    std::string name; name.resize(end-start);
     for (size_t i = start; i < end; ++i) {
         name[i-start] = pn_iv[i];
     }
@@ -2260,7 +2260,7 @@ step_handle_t XG::get_previous_step(const step_handle_t& step_handle) const {
 
 }
 
-bool XG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const {
+bool XG::for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const {
     for (size_t i = 0; i < paths.size(); i++) {
         // convert to 1-based rank
         path_handle_t path_handle = as_path_handle(i + 1);
@@ -2272,7 +2272,7 @@ bool XG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& i
     return true;
 }
 
-bool XG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
+bool XG::for_each_step_on_handle_impl(const handle_t& handle, const std::function<bool(const step_handle_t&)>& iteratee) const {
     size_t off = np_bv_select(id_to_rank(get_id(handle)));
     size_t i = off;
     while (i < np_bv.size() && (off == i && np_iv[i] != 0 || np_bv[i] == 0)) {
@@ -2297,7 +2297,7 @@ size_t XG::get_position_of_step(const step_handle_t& step) const {
 step_handle_t XG::get_step_at_position(const path_handle_t& path, const size_t& position) const {
     
     if (position >= get_path_length(path)) {
-        throw runtime_error("Cannot get position " + std::to_string(position) + " along path " +
+        throw std::runtime_error("Cannot get position " + std::to_string(position) + " along path " +
             get_path_name(path) + " of length " + std::to_string(get_path_length(path)));
     }
     
@@ -2445,7 +2445,7 @@ std::pair<nid_t, std::vector<path_handle_t> > XG::nearest_path_node(const nid_t&
 // don't actually take strict minumum over all paths.  rather, prefer paths that
 // contain the nodes when possible. 
 int64_t XG::min_approx_path_distance(const nid_t& id1, const nid_t& id2) const {
-    int64_t min_distance = numeric_limits<int64_t>::max();
+    int64_t min_distance = std::numeric_limits<int64_t>::max();
     std::pair<nid_t, std::vector<path_handle_t> > near1 = nearest_path_node(id1);
     std::pair<nid_t, std::vector<path_handle_t> > near2 = nearest_path_node(id2);
     if (near1.second.size() || near2.second.size()) {
@@ -2460,7 +2460,7 @@ int64_t XG::min_approx_path_distance(const nid_t& id1, const nid_t& id2) const {
             for (auto& p1 : pos1s) {
                 for (auto& p2 : pos2s) {
                     int64_t distance = abs((int64_t)p1 - (int64_t)p2);
-                    min_distance = min(distance, min_distance);
+                    min_distance = std::min(distance, min_distance);
                 }
             }
         }
@@ -2604,11 +2604,11 @@ struct Handler {
 } handler;
 
 std::string create(const std::string& base) {
-    std::lock_guard<recursive_mutex> lock(monitor);
+    std::lock_guard<std::recursive_mutex> lock(monitor);
 
     if (handler.parent_directory.empty()) {
         // Make a parent directory for our temp files
-        string tmpdirname_cpp = get_dir() + "/xg-XXXXXX";
+        std::string tmpdirname_cpp = get_dir() + "/xg-XXXXXX";
         char* tmpdirname = new char[tmpdirname_cpp.length() + 1];
         strcpy(tmpdirname, tmpdirname_cpp.c_str());
         auto got = mkdtemp(tmpdirname);
@@ -2616,7 +2616,7 @@ std::string create(const std::string& base) {
             // Save the directory we got
             handler.parent_directory = got;
         } else {
-            cerr << "[xg]: couldn't create temp directory: " << tmpdirname << endl;
+            std::cerr << "[xg]: couldn't create temp directory: " << tmpdirname << std::endl;
             exit(1);
         }
         delete [] tmpdirname;
@@ -2629,8 +2629,8 @@ std::string create(const std::string& base) {
         // we don't leave it open; we are assumed to open it again externally
         close(fd);
     } else {
-        cerr << "[xg]: couldn't create temp file on base "
-             << base << " : " << tmpname << endl;
+        std::cerr << "[xg]: couldn't create temp file on base "
+             << base << " : " << tmpname << std::endl;
         exit(1);
     }
     handler.filenames.insert(tmpname);
@@ -2643,20 +2643,20 @@ std::string create() {
 }
 
 void remove(const std::string& filename) {
-    std::lock_guard<recursive_mutex> lock(monitor);
+    std::lock_guard<std::recursive_mutex> lock(monitor);
     
     std::remove(filename.c_str());
     handler.filenames.erase(filename);
 }
 
 void set_dir(const std::string& new_temp_dir) {
-    std::lock_guard<recursive_mutex> lock(monitor);
+    std::lock_guard<std::recursive_mutex> lock(monitor);
     
     temp_dir = new_temp_dir;
 }
 
 std::string get_dir() {
-    std::lock_guard<recursive_mutex> lock(monitor);
+    std::lock_guard<std::recursive_mutex> lock(monitor);
 
     // Get the default temp dir from environment variables.
     if (temp_dir.empty()) {
