@@ -2571,9 +2571,9 @@ pos_t XG::graph_pos_at_path_position(const path_handle_t& path_handle, size_t pa
 namespace temp_file {
 
 // We use this to make the API thread-safe
-std::recursive_mutex monitor;
+static std::recursive_mutex monitor;
 
-std::string temp_dir;
+static std::string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
@@ -2601,7 +2601,8 @@ struct Handler {
             std::remove(parent_directory.c_str());
         }
     }
-} handler;
+};
+static Handler handler;
 
 std::string create(const std::string& base) {
     std::lock_guard<std::recursive_mutex> lock(monitor);
@@ -2647,6 +2648,12 @@ void remove(const std::string& filename) {
     
     std::remove(filename.c_str());
     handler.filenames.erase(filename);
+}
+
+void forget() {
+    std::lock_guard<std::recursive_mutex> lock(monitor);
+    handler.filenames.clear();
+    handler.parent_directory.clear();
 }
 
 void set_dir(const std::string& new_temp_dir) {
