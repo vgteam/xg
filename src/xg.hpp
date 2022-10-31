@@ -604,6 +604,9 @@ std::string create();
 /// Remove a temporary file
 void remove(const std::string& filename);
 
+/// Forget about all current temporary files and directories without deleting them.
+void forget();
+
 /// Set a temp dir, overriding system defaults and environment variables.
 void set_dir(const std::string& new_temp_dir);
 
