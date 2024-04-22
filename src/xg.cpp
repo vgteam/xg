@@ -766,17 +766,26 @@ void XG::from_gfa(const std::string& gfa_filename, bool validate, std::string ba
             lambda(from_id, from_rev, to_id, to_rev);
         });
     };
-    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+    auto for_each_path_element = [&](const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                               const nid_t& node_id, const bool& is_rev,
                                                               const std::string& cigar,
                                                               const bool& is_empty, const bool& is_circular)>& lambda) {
         gfa.for_each_path_element_in_file(filename, [&](const std::string& path_name_raw, const std::string& node_id_str,
                                                         bool is_rev, const std::string& cigar,
                                                         bool is_empty, bool is_circular) {
+            
             nid_t node_id = std::stol(node_id_str);
             std::string path_name = path_name_raw;
             path_name.erase(std::remove_if(path_name.begin(), path_name.end(), [](char c) { return std::isspace(c); }), path_name.end());
-            lambda(path_name, node_id, is_rev, cigar, is_empty, is_circular);
+
+            PathSense sense;
+            std::string sample;
+            std::string locus;
+            size_t haplotype;
+            subrange_t subrange;
+            PathMetadata::parse_path_name(path_name, sense, sample, locus, haplotype, subrange);
+
+            lambda(sense, sample, locus, haplotype, subrange, node_id, is_rev, cigar, is_empty, is_circular);
         });
     };
     from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, validate, basename);
@@ -799,7 +808,7 @@ void XG::from_handle_graph(const HandleGraph& graph) {
                        graph.get_id(edge.second), graph.get_is_reverse(edge.second));
             });
     };
-    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+    auto for_each_path_element = [&](const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                               const nid_t& node_id, const bool& is_rev,
                                                               const std::string& cigar, const bool& is_empty, const bool& is_circular)>& lambda) {
         // no-op
@@ -822,20 +831,24 @@ void XG::from_path_handle_graph(const PathHandleGraph& graph) {
                        graph.get_id(edge.second), graph.get_is_reverse(edge.second));
             });
     };
-    auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
+    auto for_each_path_element = [&](const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                               const nid_t& node_id, const bool& is_rev,
                                                               const std::string& cigar, const bool& is_empty, const bool& is_circular)>& lambda) {
         graph.for_each_path_handle([&](const path_handle_t& path_handle) {
-                std::string path_name = graph.get_path_name(path_handle);
+                PathSense sense = graph.get_sense(path_handle);
+                std::string sample = graph.get_sample_name(path_handle);
+                std::string locus = graph.get_locus_name(path_handle);
+                size_t hapolotype = graph.get_haplotype(path_handle);
+                subrange_t subrange = graph.get_subrange(path_handle);
                 size_t step_count = 0;
                 bool path_is_circular = graph.get_is_circular(path_handle);
                 graph.for_each_step_in_path(path_handle, [&](const step_handle_t& step) {
                         handle_t handle = graph.get_handle_of_step(step);
-                        lambda(path_name, graph.get_id(handle), graph.get_is_reverse(handle), "", false, path_is_circular);
+                        lambda(sense, sample, locus, haplotype, subrange, graph.get_id(handle), graph.get_is_reverse(handle), "", false, path_is_circular);
                         ++step_count;
                     });
                 if (step_count == 0) {
-                    lambda(path_name, 0, false, "", true, path_is_circular);
+                    lambda(sense, sample, locus, haplotype, subrange, 0, false, "", true, path_is_circular);
                 }
             });
     };
@@ -845,7 +858,7 @@ void XG::from_path_handle_graph(const PathHandleGraph& graph) {
 void XG::from_enumerators(const std::function<void(const std::function<void(const std::string& seq, const nid_t& node_id)>&)>& for_each_sequence,
                           const std::function<void(const std::function<void(const nid_t& from, const bool& from_rev,
                                                                             const nid_t& to, const bool& to_rev)>&)>& for_each_edge,
-                          const std::function<void(const std::function<void(const std::string& path_name,
+                          const std::function<void(const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                                             const nid_t& node_id, const bool& is_rev,
                                                                             const std::string& cigar, const bool& is_empty,
                                                                             const bool& is_circular)>&)>& for_each_path_element,
@@ -886,15 +899,28 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
         ++edge_count;
     });
     // path count
+    
+    // Track the last values of all the metadata fields.
+    // Nobody can have these empty values all together.
+    PathSense prev_sense = PathSense::GENERIC;
+    std::string prev_sample = "";
+    std::string prev_locus = "";
+    size_t prev_haplotype = 0;
+    subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+
     std::string pname;
 #ifdef VERBOSE_DEBUG
     std::cerr << "counting paths" << std::endl;
 #endif
-    for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-            if (path_name != pname) {
+    for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
+            if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
                 ++path_count;
+                prev_sense = sense;
+                prev_sample = sample;
+                prev_locus = locus;
+                prev_haplotype = haplotype;
+                prev_subrange = subrange;
             }
-            pname = path_name;
         });
 #ifdef VERBOSE_DEBUG
     std::cerr << "graph has " << seq_length << "bp in sequence, "
@@ -1077,6 +1103,14 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // paths
     std::string path_names;
 
+    // Track the last values of all the metadata fields.
+    // Nobody can have these empty values all together.
+    PathSense prev_sense = PathSense::GENERIC;
+    std::string prev_sample = "";
+    std::string prev_locus = "";
+    size_t prev_haplotype = 0;
+    subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+
     std::string curr_path_name;
     std::vector<handle_t> curr_path_steps;
     size_t curr_node_count = 0;
@@ -1121,14 +1155,27 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // todo ... is it circular?
     // might make sense to scan the file for this
     bool has_path = false;
-    for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-            if (path_name != curr_path_name && !curr_path_name.empty()) {
-                // build the last path we've accumulated
-                build_accumulated_path();
-                curr_path_steps.clear();
-                curr_is_circular = false;
+    for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
+            // TODO: Need to encode sense somewhere
+
+            
+            if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
+                // Starting a new path
+                if (!curr_path_name.empty()) {
+                    // build the last path we've accumulated
+                    build_accumulated_path();
+                    curr_path_steps.clear();
+                    curr_is_circular = false;
+                }
+                prev_sense = sense;
+                prev_sample = sample;
+                prev_locus = locus;
+                prev_haplotype = haplotype;
+                prev_subrange = subrange;
+
+                curr_path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
             }
-            curr_path_name = path_name;
+            
             if (!is_empty) {
                 handle_t visiting = get_handle(node_id, is_rev);
 #ifdef debug_path_index
@@ -1219,6 +1266,14 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
             });
         // do our stored paths match those in the input?
 
+        // Track the last values of all the metadata fields.
+        // Nobody can have these empty values all together.
+        PathSense prev_sense = PathSense::GENERIC;
+        std::string prev_sample = "";
+        std::string prev_locus = "";
+        size_t prev_haplotype = 0;
+        subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+
         std::string curr_path_name;
         std::vector<handle_t> curr_path_steps;
         size_t curr_node_count = 0;
@@ -1293,13 +1348,25 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
                 pos += get_length(handle);
             }
         };
-        for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-                if (path_name != curr_path_name && !curr_path_name.empty()) {
-                    // check the last path we've accumulated
-                    check_accumulated_path();
-                    curr_path_steps.clear();
+        for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
+                if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
+                    // Starting a new path
+                    if (!curr_path_name.empty()) {
+                        // check the last path we've accumulated
+                        check_accumulated_path();
+                        curr_path_steps.clear();
+                    }
+
+                    prev_sense = sense;
+                    prev_sample = sample;
+                    prev_locus = locus;
+                    prev_haplotype = haplotype;
+                    prev_subrange = subrange;
+
+                    curr_path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
                 }
-                curr_path_name = path_name;
+                
+                
                 if (!is_empty) {
                     curr_path_steps.push_back(get_handle(node_id, is_rev));
                 }

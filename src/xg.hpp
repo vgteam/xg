@@ -211,7 +211,7 @@ public:
     void from_enumerators(const std::function<void(const std::function<void(const std::string& seq, const nid_t& node_id)>&)>& for_each_sequence,
                           const std::function<void(const std::function<void(const nid_t& from, const bool& from_rev,
                                                                             const nid_t& to, const bool& to_rev)>&)>& for_each_edge,
-                          const std::function<void(const std::function<void(const std::string& path_name,
+                          const std::function<void(const std::function<void(const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange,
                                                                             const nid_t& node_id, const bool& is_rev,
                                                                             const std::string& cigar, const bool& is_empty,
                                                                             const bool& is_circular)>&)>& for_each_path_element,
