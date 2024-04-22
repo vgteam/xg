@@ -151,10 +151,11 @@ void XG::deserialize_members(std::istream& in) {
         case 13:
         case 14:
         case 15:
+        case 16:
             std::cerr << "warning:[XG] Loading an out-of-date XG format. "
                       << "For better performance over repeated loads, consider recreating this XG index." << std::endl;
             // Fall through
-        case 16:
+        case 17:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -242,8 +243,11 @@ void XG::deserialize_members(std::istream& in) {
                     }
                 }
                 
-                if (file_version <= 15) {
-                    // load and convert the path name vector with the new delimiters
+                // We may need to copy path senses from the old names to the XGPaths.
+                std::vector<PathSense> path_sense_hints;
+
+                if (file_version < 17) {
+                    // load and convert the path name vector 
                     sdsl::int_vector<> old_pn_iv;
                     old_pn_iv.load(in);
                     size_t num_path_names = 0;
@@ -262,8 +266,8 @@ void XG::deserialize_members(std::istream& in) {
                         // the bit vector contains one 1 per path name
                         num_path_names = old_pn_bv_rank(old_pn_iv.size() - 1);
                     }
-                    if (num_path_names > 0) {
-                        // we now have 1 fewer separator between path names
+                    if (file_version <= 15 && num_path_names > 0) {
+                        // we now have 1 fewer separator between each pair of adjacent path names
                         size_t pn_size = old_pn_iv.size() - (num_path_names - 1);
                         sdsl::util::assign(pn_iv, sdsl::int_vector<>(pn_size));
                         
@@ -281,6 +285,41 @@ void XG::deserialize_members(std::istream& in) {
                         }
                         // add the final delimiter
                         pn_iv[pn_size - 1] = path_name_csa_delim;
+                    }
+                    if (file_version < 17 && num_path_names > 0) {
+                        std::string new_pn_iv;
+
+                        // Upgrade each path name
+                        std::string old_path_name;
+                        for (char character : pn_iv) {
+                            if (character == path_name_csa_delim) {
+                                if (!old_path_name.empty()) {
+                                    // We've completed a path name.
+                                    // Parse and upgrade it.
+                                    auto new_name_and_sense = upgrade_path_name(old_path_name);
+                                    std::string& new_path_name = new_name_and_sense.first;
+                                    path_sense_hints.push_back(new_name_and_sense.second);
+
+                                    for (auto& new_character : new_path_name) {
+                                        // Copy all the characters of the upgraded name over
+                                        new_pn_iv.push_back(new_character);
+                                    }
+                                    
+                                    old_path_name.clear();
+                                }
+                                new_pn_iv.push_back(character);
+                            }
+                            else {
+                                // This character is in a path name
+                                old_path_name.push_back(character);
+                            }
+                        }
+
+                        // And recompress the updated names
+                        sdsl::util::assign(pn_iv, sdsl::int_vector<>(new_pn_iv.size()));
+                        for (size_t i = 0; i < new_pn_iv.size(); i++) {
+                            pn_iv[i] = new_pn_iv[i];
+                        }
                         sdsl::util::bit_compress(pn_iv);
                     }
                     // reconstruct the CSA and bitvector
@@ -301,17 +340,17 @@ void XG::deserialize_members(std::istream& in) {
                     // Load the path, giving it the file version and a
                     // rank-to-ID comversion function for format upgrade
                     // purposes.
-                    if (file_version <= 12) {
-                        path->load_from_old_version(in, file_version, *this);
-                    }
-                    else {
-                        path->load(in);
-                    }
+                    path->load_from_version(in, file_version, *this);
                     if (file_version > 12 && file_version <= 14) {
                         // the paths consist of handles, but we've changed
                         // the offsets of items in the g vector, so we need
                         // to resync
                         path->sync_offsets(old_g_bv_rank, g_bv_select);
+                    }
+
+                    if (file_version < 17) {
+                        // Copy senses across from the old names
+                        path->sense = path_sense_hints.at(i);
                     }
                     
                     paths.push_back(path);
@@ -398,15 +437,6 @@ void XG::deserialize_members(std::istream& in) {
 #endif
 }
 
-void XGPath::load(std::istream& in) {
-    sdsl::read_member(min_handle, in);
-    handles.load(in);
-    offsets.load(in);
-    offsets_rank.load(in, &offsets);
-    offsets_select.load(in, &offsets);
-    sdsl::read_member(is_circular, in);    
-}
-
 void XGPath::sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
                           const sdsl::bit_vector::select_1_type& g_bv_select) {
     
@@ -435,7 +465,7 @@ void XGPath::sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
     sdsl::util::assign(handles, sdsl::enc_vector<>(handles_iv));
 }
 
-void XGPath::load_from_old_version(std::istream& in, uint32_t file_version, const XG& graph) {
+void XGPath::load_from_version(std::istream& in, uint32_t file_version, const XG& graph) {
     
     if (file_version < 8) {
         // skip over some members from early versions
@@ -453,71 +483,84 @@ void XGPath::load_from_old_version(std::istream& in, uint32_t file_version, cons
         }
     }
     
-    // convert the old ID and direction vectors into the handles vector
-    {
-        // first make an int vector of handles
-        sdsl::int_vector<> handles_iv;
+    if (file_version < 16) {
+        // convert the old ID and direction vectors into the handles vector
         {
-            nid_t id_offset = 0;
-            if (file_version >= 8) {
-                // IDs are stored relative to a minimum offset
-                sdsl::read_member(id_offset, in);
+            // first make an int vector of handles
+            sdsl::int_vector<> handles_iv;
+            {
+                nid_t id_offset = 0;
+                if (file_version >= 8) {
+                    // IDs are stored relative to a minimum offset
+                    sdsl::read_member(id_offset, in);
+                }
+                
+                sdsl::wt_gmr<> ids;
+                ids.load(in);
+                
+                sdsl::sd_vector<> directions;
+                directions.load(in);
+                // compute the minimum handle
+                min_handle = handlegraph::as_handle(std::numeric_limits<uint64_t>::max());
+                for (size_t i = 0; i < ids.size(); ++i) {
+                    min_handle = as_handle(std::min(as_integer(min_handle),
+                                                    as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i]))));
+                }
+                // convert the vector into a handle-based one with a min handle offset
+                sdsl::util::assign(handles_iv, sdsl::int_vector<>(ids.size()));
+                for (size_t i = 0; i < ids.size(); ++i) {
+                    handles_iv[i] = as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i])) - as_integer(min_handle);
+                }
             }
             
-            sdsl::wt_gmr<> ids;
-            ids.load(in);
+            // re-encode the handles int vector with a variable-length encoding
+            sdsl::util::assign(handles, sdsl::enc_vector<>(handles_iv));
+        }
+        
+        // skip the rank and position vectors
+        {
+            sdsl::int_vector<> ranks;
+            ranks.load(in);
+        }
+        {
+            sdsl::int_vector<> positions;
+            positions.load(in);
+        }
+    }
+    else {
+        sdsl::read_member(min_handle, in);
+        handles.load(in);
+    }
+    
+    if (file_version < 16) {
+        // translate the offset from a straight bit_vector to an rrr_vector
+        {
+            sdsl::bit_vector offsets_bv;
+            offsets_bv.load(in);
             
-            sdsl::sd_vector<> directions;
-            directions.load(in);
-            // compute the minimum handle
-            min_handle = handlegraph::as_handle(std::numeric_limits<uint64_t>::max());
-            for (size_t i = 0; i < ids.size(); ++i) {
-                min_handle = as_handle(std::min(as_integer(min_handle),
-                                                as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i]))));
+            // skip its rank and select support
+            {
+                sdsl::rank_support_v<1> offsets_bv_rank;
+                offsets_bv_rank.load(in, &offsets_bv);
             }
-            // convert the vector into a handle-based one with a min handle offset
-            sdsl::util::assign(handles_iv, sdsl::int_vector<>(ids.size()));
-            for (size_t i = 0; i < ids.size(); ++i) {
-                handles_iv[i] = as_integer(graph.get_handle(ids[i] + id_offset - 1, directions[i])) - as_integer(min_handle);
+            {
+                sdsl::bit_vector::select_1_type offsets_bv_select;
+                offsets_bv_select.load(in, &offsets_bv);
             }
+            
+            // reencode it as the rrr_vector we want
+            sdsl::util::assign(offsets, sdsl::rrr_vector<>(offsets_bv));
         }
         
-        // re-encode the handles int vector with a variable-length encoding
-        sdsl::util::assign(handles, sdsl::enc_vector<>(handles_iv));
+        // recreate the rank and select support
+        sdsl::util::assign(offsets_rank, sdsl::rrr_vector<>::rank_1_type(&offsets));
+        sdsl::util::assign(offsets_select, sdsl::rrr_vector<>::select_1_type(&offsets));
     }
-    
-    // skip the rank and position vectors
-    {
-        sdsl::int_vector<> ranks;
-        ranks.load(in);
+    else {
+        offsets.load(in);
+        offsets_rank.load(in, &offsets);
+        offsets_select.load(in, &offsets);
     }
-    {
-        sdsl::int_vector<> positions;
-        positions.load(in);
-    }
-    
-    // translate the offset from a straight bit_vector to an rrr_vector
-    {
-        sdsl::bit_vector offsets_bv;
-        offsets_bv.load(in);
-        
-        // skip its rank and select support
-        {
-            sdsl::rank_support_v<1> offsets_bv_rank;
-            offsets_bv_rank.load(in, &offsets_bv);
-        }
-        {
-            sdsl::bit_vector::select_1_type offsets_bv_select;
-            offsets_bv_select.load(in, &offsets_bv);
-        }
-        
-        // reencode it as the rrr_vector we want
-        sdsl::util::assign(offsets, sdsl::rrr_vector<>(offsets_bv));
-    }
-    
-    // recreate the rank and select support
-    sdsl::util::assign(offsets_rank, sdsl::rrr_vector<>::rank_1_type(&offsets));
-    sdsl::util::assign(offsets_select, sdsl::rrr_vector<>::select_1_type(&offsets));
     
     if (file_version >= 10) {
         // there is support for circular paths in this version
@@ -526,6 +569,11 @@ void XGPath::load_from_old_version(std::istream& in, uint32_t file_version, cons
     else {
         // previous versions are interpreted as not circular
         is_circular = false;
+    }
+
+    if (file_version >= 17) {
+        // We have a path sense stored.
+        sdsl::read_member(sense, in);
     }
 }
 
@@ -540,12 +588,14 @@ size_t XGPath::serialize(std::ostream& out,
     written += offsets_rank.serialize(out, child, "path_node_starts_rank_" + name);
     written += offsets_select.serialize(out, child, "path_node_starts_select_" + name);
     written += sdsl::write_member(is_circular, out, child, "is_circular_" + name);
+    written += sdsl::write_member(sense, out, child, "sense" + name);
     sdsl::structure_tree::add_size(child, written);
     return written;
 }
 
 XGPath::XGPath(const std::string& path_name,
                const std::vector<handle_t>& path,
+               PathSense sense,
                bool is_circular,
                XG& graph) {
 
@@ -558,6 +608,8 @@ XGPath::XGPath(const std::string& path_name,
 
     // The circularity flag is just a normal bool
     this->is_circular = is_circular;
+    // And the sense is an enum
+    this->sense = sense;
 
     // handle integer values, the literal path
     sdsl::int_vector<> handles_iv;
@@ -838,7 +890,7 @@ void XG::from_path_handle_graph(const PathHandleGraph& graph) {
                 PathSense sense = graph.get_sense(path_handle);
                 std::string sample = graph.get_sample_name(path_handle);
                 std::string locus = graph.get_locus_name(path_handle);
-                size_t hapolotype = graph.get_haplotype(path_handle);
+                size_t haplotype = graph.get_haplotype(path_handle);
                 subrange_t subrange = graph.get_subrange(path_handle);
                 size_t step_count = 0;
                 bool path_is_circular = graph.get_is_circular(path_handle);
@@ -902,24 +954,23 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     
     // Track the last values of all the metadata fields.
     // Nobody can have these empty values all together.
-    PathSense prev_sense = PathSense::GENERIC;
-    std::string prev_sample = "";
-    std::string prev_locus = "";
-    size_t prev_haplotype = 0;
-    subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+    PathSense curr_sense = PathSense::GENERIC;
+    std::string curr_sample = "";
+    std::string curr_locus = "";
+    size_t curr_haplotype = 0;
+    subrange_t curr_subrange = PathMetadata::NO_SUBRANGE;
 
-    std::string pname;
 #ifdef VERBOSE_DEBUG
     std::cerr << "counting paths" << std::endl;
 #endif
     for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-            if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
+            if (sense != curr_sense || sample != curr_sample || locus != curr_locus || haplotype != curr_haplotype || subrange != curr_subrange) {
                 ++path_count;
-                prev_sense = sense;
-                prev_sample = sample;
-                prev_locus = locus;
-                prev_haplotype = haplotype;
-                prev_subrange = subrange;
+                curr_sense = sense;
+                curr_sample = sample;
+                curr_locus = locus;
+                curr_haplotype = haplotype;
+                curr_subrange = subrange;
             }
         });
 #ifdef VERBOSE_DEBUG
@@ -1105,11 +1156,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 
     // Track the last values of all the metadata fields.
     // Nobody can have these empty values all together.
-    PathSense prev_sense = PathSense::GENERIC;
-    std::string prev_sample = "";
-    std::string prev_locus = "";
-    size_t prev_haplotype = 0;
-    subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+    curr_sense = PathSense::GENERIC;
+    curr_sample = "";
+    curr_locus = "";
+    curr_haplotype = 0;
+    curr_subrange = PathMetadata::NO_SUBRANGE;
 
     std::string curr_path_name;
     std::vector<handle_t> curr_path_steps;
@@ -1143,6 +1194,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
         }
         path_names += path_name_csa_delim + curr_path_name;
         XGPath* path = new XGPath(curr_path_name, curr_path_steps,
+                                  curr_sense,
                                   curr_is_circular,
                                   *this);
         paths.push_back(path);
@@ -1159,7 +1211,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
             // TODO: Need to encode sense somewhere
 
             
-            if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
+            if (sense != curr_sense || sample != curr_sample || locus != curr_locus || haplotype != curr_haplotype || subrange != curr_subrange) {
                 // Starting a new path
                 if (!curr_path_name.empty()) {
                     // build the last path we've accumulated
@@ -1167,11 +1219,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
                     curr_path_steps.clear();
                     curr_is_circular = false;
                 }
-                prev_sense = sense;
-                prev_sample = sample;
-                prev_locus = locus;
-                prev_haplotype = haplotype;
-                prev_subrange = subrange;
+                curr_sense = sense;
+                curr_sample = sample;
+                curr_locus = locus;
+                curr_haplotype = haplotype;
+                curr_subrange = subrange;
 
                 curr_path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
             }
@@ -1268,11 +1320,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
 
         // Track the last values of all the metadata fields.
         // Nobody can have these empty values all together.
-        PathSense prev_sense = PathSense::GENERIC;
-        std::string prev_sample = "";
-        std::string prev_locus = "";
-        size_t prev_haplotype = 0;
-        subrange_t prev_subrange = PathMetadata::NO_SUBRANGE;
+        PathSense curr_sense = PathSense::GENERIC;
+        std::string curr_sample = "";
+        std::string curr_locus = "";
+        size_t curr_haplotype = 0;
+        subrange_t curr_subrange = PathMetadata::NO_SUBRANGE;
 
         std::string curr_path_name;
         std::vector<handle_t> curr_path_steps;
@@ -1348,8 +1400,8 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
                 pos += get_length(handle);
             }
         };
-        for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-                if (sense != prev_sense || sample != prev_sample || locus != prev_locus || haplotype != prev_haplotype || subrange != prev_subrange) {
+        for_each_path_element([&](const PathSense& sense, const std::string& sample, const std::string& locus, const size_t& haplotype, const subrange_t& subrange, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
+                if (sense != curr_sense || sample != curr_sample || locus != curr_locus || haplotype != curr_haplotype || subrange != curr_subrange) {
                     // Starting a new path
                     if (!curr_path_name.empty()) {
                         // check the last path we've accumulated
@@ -1357,15 +1409,14 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
                         curr_path_steps.clear();
                     }
 
-                    prev_sense = sense;
-                    prev_sample = sample;
-                    prev_locus = locus;
-                    prev_haplotype = haplotype;
-                    prev_subrange = subrange;
+                    curr_sense = sense;
+                    curr_sample = sample;
+                    curr_locus = locus;
+                    curr_haplotype = haplotype;
+                    curr_subrange = subrange;
 
                     curr_path_name = PathMetadata::create_path_name(sense, sample, locus, haplotype, subrange);
                 }
-                
                 
                 if (!is_empty) {
                     curr_path_steps.push_back(get_handle(node_id, is_rev));
@@ -1622,6 +1673,93 @@ void XG::index_node_to_path(const std::string& basename) {
     sdsl::util::bit_compress(nr_iv);
     sdsl::util::bit_compress(nx_iv);
     sdsl::util::assign(np_bv_select, sdsl::bit_vector::select_1_type(&np_bv));
+}
+
+// Check if all values in the given string between the given positions are
+// numbers, and that there's at least one number.
+static bool is_number(const std::string& str, size_t begin, size_t end) {
+    if (begin <= end) {
+        // Fail if the string region is empty
+        return false;
+    }
+    for(size_t i = begin; i != end; i++) {
+        // Look at each character in the string
+        char found = str[i];
+        if (found < '0' || found > '9') {
+            // And fail if it is out of the digit range
+            return false;
+        }
+    }
+    return true;
+}
+
+std::pair<std::string, PathSense> XG::upgrade_path_name(const std::string& old_path_name) {
+    
+    // Split into scaffold and upgraded subrange
+    std::string scaffold;
+    std::string subrange;
+    // By default paths are generic
+    PathSense sense = PathSense::GENERIC;
+
+    if (old_path_name.length() > 2 && old_path_name[old_path_name.length() - 1] == ']') {
+        size_t close_bracket = old_path_name.length() - 1;
+        // Look for a matching bracket
+        size_t open_bracket = old_path_name.rfind('[', close_bracket - 1);
+        if (open_bracket != std::string::npos) {
+            // The name ends in a bracketed value.
+            // Try and parse it.
+            size_t dash = old_path_name.rfind('-', close_bracket - 1);
+            if ((dash != std::string::npos && dash > open_bracket && is_number(old_path_name, open_bracket + 1, dash) && is_number(old_path_name, dash + 1, close_bracket)) || is_number(old_path_name, open_bracket + 1, close_bracket)) {
+                // Either a 1 or 2-element range between the brackets. Copy it.
+                scaffold = old_path_name.substr(0, open_bracket);
+                subrange = old_path_name.substr(open_bracket + 1, close_bracket - (open_bracket + 1));
+            }
+        }
+    }
+    
+    if (scaffold.empty() && subrange.empty()) {
+        // Didn't find a subrange so it's all scaffold
+        scaffold = old_path_name;
+    }
+
+    // Now we upgrade sample#haplotype#contig#phase_block scaffolds
+    std::vector<size_t> hashes;
+    while (hashes.empty() || hashes.back() + 1 < scaffold.size()) {
+        // Find all the hashes
+        size_t start = hashes.empty() ? 0 : hashes.back() + 1;
+        size_t next_hash = scaffold.find('#', start);
+        if (next_hash == std::string::npos) {
+            break;
+        }
+        else {
+            hashes.push_back(next_hash);
+        }
+    }
+    if (hashes.size() == 3 && is_number(scaffold, hashes[0] + 1, hashes[1]) && is_number(scaffold, hashes[2] + 1, scaffold.size())) {
+        // This looks like a haplotype
+        sense = PathSense::HAPLOTYPE;
+        if (!subrange.empty() && scaffold.substr(hashes[2] + 1) != "0") {
+            // It has a nonzero phase block and a subrange already
+            throw std::runtime_error("xg::XG: cannot convert old-style path name " + old_path_name);
+        }
+        if (scaffold.substr(hashes[2] + 1) != "0") {
+            // Move the phase block to the subrange 
+            subrange = scaffold.substr(hashes[2] + 1);
+        }
+        // Eliminate the phase block and separator
+        scaffold = scaffold.substr(0, hashes[2]);
+    }
+    else if (hashes.size() == 2 && is_number(scaffold, hashes[0] + 1, hashes[1]) || hashes.size() == 1) {
+        // This is a sample#hap#contig or sample#contig path, so treat it as reference.
+        sense = PathSense::REFERENCE;
+    }
+
+    std::string new_path_name = scaffold;
+    if (!subrange.empty()) {
+        new_path_name += ":" + subrange;
+    }
+    return std::make_pair(new_path_name, sense);
+
 }
 
 void XG::index_path_names() {
@@ -2373,6 +2511,11 @@ step_handle_t XG::get_step_at_position(const path_handle_t& path, const size_t& 
     as_integers(step)[0] = as_integer(path);
     as_integers(step)[1] = xgpath.step_rank_at_position(position);
     return step;
+}
+
+PathSense XG::get_sense(const path_handle_t& handle) const {
+    const auto& xgpath = *paths[as_integer(handle) - 1];
+    return xgpath.sense;
 }
 
 size_t XG::get_node_count() const {

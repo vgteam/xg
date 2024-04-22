@@ -226,7 +226,7 @@ public:
     //void from_path_handle_graph(const PathHandleGraph& other);
     
     // What version of an XG is this designed to read?
-    const static uint32_t CURRENT_VERSION = 16;
+    const static uint32_t CURRENT_VERSION = 17;
     
     /// Get the magic number used to prefix serialized streams.
     uint32_t get_magic_number(void) const;
@@ -373,6 +373,15 @@ public:
     size_t get_position_of_step(const step_handle_t& step) const;
     /// Get the step at a given position
     step_handle_t get_step_at_position(const path_handle_t& path, const size_t& position) const;
+
+    ////////////////////////
+    // Path metadata API
+    ////////////////////////
+
+    /// What is the given path meant to be representing?
+    virtual PathSense get_sense(const path_handle_t& handle) const;
+    
+    // The other accessors use the stored name
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -484,6 +493,10 @@ private:
     void reencode_old_g_vector(const sdsl::int_vector<>& old_g_iv,
                                const sdsl::rank_support_v<1>& old_g_bv_rank);
     
+    // Convert an old-syntax path name with #0 or whatever fragment on the end
+    // and/or [] subranges to the new syntax, and get the sense it used to have..
+    static std::pair<std::string, PathSense> upgrade_path_name(const std::string& old_path_name);
+
     // Create the path name CSA and bit vector from the path name int vector
     void index_path_names();
     // Use memmapped indexing to construct the node-to-path indexes once
@@ -549,6 +562,7 @@ public:
     // because in here is the most efficient place to count them.
     XGPath(const std::string& path_name,
            const std::vector<handle_t>& path,
+           PathSense sense,
            bool is_circular,
            XG& graph);
     // Path names are stored in the XG object, in a compressed fashion, and are
@@ -567,8 +581,8 @@ public:
     sdsl::rrr_vector<>::rank_1_type offsets_rank;
     sdsl::rrr_vector<>::select_1_type offsets_select;
     bool is_circular = false;
-    void load(std::istream& in);
-    void load_from_old_version(std::istream& in, uint32_t file_version, const XG& graph);
+    PathSense sense = PathSense::GENERIC;
+    void load_from_version(std::istream& in, uint32_t file_version, const XG& graph);
     void sync_offsets(const sdsl::rank_support_v<1>& old_g_bv_rank,
                       const sdsl::bit_vector::select_1_type& g_bv_select);
     size_t serialize(std::ostream& out,
