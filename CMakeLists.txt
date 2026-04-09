@@ -78,7 +78,7 @@ set(sdsl-lite-divsufsort_LIB "${INSTALL_DIR}/src/sdsl-lite-build/external/libdiv
 
 # mmmulti (memory mapped multimap)
 ExternalProject_Add(mmmulti
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/mmmulti"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/mmmulti"
   BUILD_COMMAND ""
   UPDATE_COMMAND ""
   INSTALL_COMMAND ""
@@ -87,11 +87,11 @@ ExternalProject_Get_property(mmmulti SOURCE_DIR)
 set(mmmulti_INCLUDE "${SOURCE_DIR}/src")
 
 # mio (headers used by mmmulti)
-set(mio_INCLUDE "${CMAKE_SOURCE_DIR}/deps/mmmulti/deps/mio/include")
+set(mio_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/deps/mmmulti/deps/mio/include")
 
 # In-place Parallel Super Scalar Samplesort (IPS⁴o), header only
 ExternalProject_Add(ips4o
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/ips4o"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ips4o"
   INSTALL_COMMAND ""
   BUILD_COMMAND ""
   CONFIGURE_COMMAND "")
@@ -100,7 +100,7 @@ set(ips4o_INCLUDE "${SOURCE_DIR}")
 
 # atomic queue library
 ExternalProject_Add(atomicqueue
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/atomic_queue"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/atomic_queue"
   UPDATE_COMMAND ""
   INSTALL_COMMAND ""
   BUILD_COMMAND ""
@@ -110,7 +110,7 @@ set(atomicqueue_INCLUDE "${SOURCE_DIR}/include/atomic_queue")
 
 # taywee's C++ args library, header only
 ExternalProject_Add(tayweeargs
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/args"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/args"
   UPDATE_COMMAND ""
   INSTALL_COMMAND "")
 ExternalProject_Get_property(tayweeargs SOURCE_DIR)
@@ -118,7 +118,7 @@ set(tayweeargs_INCLUDE "${SOURCE_DIR}")
 
 # gfakluge (now header only)
 ExternalProject_Add(gfakluge
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/gfakluge"
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/gfakluge"
   CMAKE_ARGS "${CMAKE_ARGS};-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
   UPDATE_COMMAND ""
   INSTALL_COMMAND ""
