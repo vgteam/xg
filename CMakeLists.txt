@@ -1,11 +1,12 @@
 # Specify the minimum version for CMake
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.22)
 
 # Project's name
 project(xg)
-# We build using c++14
-set(CMAKE_CXX_STANDARD 14)
+# We build using c++20
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 23)
 
 # Use all standard-compliant optimizations
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g")
@@ -111,6 +112,7 @@ set(atomicqueue_INCLUDE "${SOURCE_DIR}/include/atomic_queue")
 # taywee's C++ args library, header only
 ExternalProject_Add(tayweeargs
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/args"
+  CMAKE_ARGS "-DCMAKE_C_FLAGS=-Wno-c2y-extensions;-DCMAKE_CXX_FLAGS=-Wno-c2y-extensions"
   UPDATE_COMMAND ""
   INSTALL_COMMAND "")
 ExternalProject_Get_property(tayweeargs SOURCE_DIR)
