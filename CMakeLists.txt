@@ -1,6 +1,6 @@
 # Specify the minimum version for CMake
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22...4.2)
 
 # Project's name
 project(xg)
@@ -58,12 +58,20 @@ include_directories("${PROJECT_SOURCE_DIR}")
 include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 
 # libhandlegraph (full build using its cmake config)
+#[[
 ExternalProject_Add(handlegraph
   SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/libhandlegraph"
   CMAKE_ARGS "${CMAKE_ARGS};-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
 ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/include")
 set(handlegraph_LIB "${INSTALL_DIR}/lib")
+]]
+FetchContent_Declare(
+  handlegraph
+  GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
+  GIT_TAG        master
+)
+FetchContent_MakeAvailable(handlegraph)
 
 # sdsl-lite (full build using its cmake config)
 ExternalProject_Add(sdsl-lite
