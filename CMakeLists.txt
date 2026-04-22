@@ -66,12 +66,14 @@ ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/include")
 set(handlegraph_LIB "${INSTALL_DIR}/lib")
 ]]
-FetchContent_Declare(
-  handlegraph
-  GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
-  GIT_TAG        master
-)
-FetchContent_MakeAvailable(handlegraph)
+IF (NOT TARGET handlegraph_objs)
+  FetchContent_Declare(
+    handlegraph
+    GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
+    GIT_TAG        master
+  )
+  FetchContent_MakeAvailable(handlegraph)
+ENDIF()
 
 # sdsl-lite (full build using its cmake config)
 ExternalProject_Add(sdsl-lite
