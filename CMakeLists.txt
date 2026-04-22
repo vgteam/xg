@@ -66,7 +66,7 @@ ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/include")
 set(handlegraph_LIB "${INSTALL_DIR}/lib")
 ]]
-IF (NOT TARGET handlegraph_objs)
+IF (NOT TARGET handlegraph)
   FetchContent_Declare(
     handlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
