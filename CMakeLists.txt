@@ -66,7 +66,7 @@ ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/include")
 set(handlegraph_LIB "${INSTALL_DIR}/lib")
 ]]
-if (NOT TARGET handlegraph)
+if (NOT TARGET handlegraph_objs)
   FetchContent_Declare(
     handlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
@@ -142,8 +142,8 @@ set(gfakluge_LIB "${INSTALL_DIR}/src/gfakluge")
 
 add_library(xg_objs OBJECT src/xg.cpp)
 
-add_dependencies(xg_objs handlegraph)
-add_dependencies(xg_objs sdsl-lite)
+add_dependencies(xg_objs handlegraph_objs)
+add_dependencies(xg_objs sdsl)
 add_dependencies(xg_objs mmmulti)
 add_dependencies(xg_objs atomicqueue)
 add_dependencies(xg_objs tayweeargs)
