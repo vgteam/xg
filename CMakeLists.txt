@@ -76,16 +76,18 @@ IF (NOT TARGET handlegraph)
 ENDIF()
 
 # sdsl-lite (full build using its cmake config)
-ExternalProject_Add(sdsl-lite
-  SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/sdsl-lite"
-  CMAKE_ARGS "${CMAKE_ARGS};-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-  UPDATE_COMMAND ""
-  INSTALL_COMMAND "")
-ExternalProject_Get_property(sdsl-lite INSTALL_DIR)
-set(sdsl-lite_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/include")
-set(sdsl-lite-divsufsort_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/include")
-set(sdsl-lite_LIB "${INSTALL_DIR}/src/sdsl-lite-build/lib")
-set(sdsl-lite-divsufsort_LIB "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/lib")
+IF (NOT TARGET sdsl)
+    ExternalProject_Add(sdsl-lite
+      SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/sdsl-lite"
+      CMAKE_ARGS "${CMAKE_ARGS};-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+      UPDATE_COMMAND ""
+      INSTALL_COMMAND "")
+    ExternalProject_Get_property(sdsl-lite INSTALL_DIR)
+    set(sdsl-lite_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/include")
+    set(sdsl-lite-divsufsort_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/include")
+    set(sdsl-lite_LIB "${INSTALL_DIR}/src/sdsl-lite-build/lib")
+    set(sdsl-lite-divsufsort_LIB "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/lib")
+ENDIF()
 
 # mmmulti (memory mapped multimap)
 ExternalProject_Add(mmmulti
