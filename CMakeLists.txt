@@ -66,22 +66,22 @@ ExternalProject_Get_property(handlegraph INSTALL_DIR)
 set(handlegraph_INCLUDE "${INSTALL_DIR}/include")
 set(handlegraph_LIB "${INSTALL_DIR}/lib")
 ]]
-IF (NOT TARGET handlegraph)
+if (NOT TARGET handlegraph)
   FetchContent_Declare(
     handlegraph
     GIT_REPOSITORY https://github.com/vgteam/libhandlegraph
     GIT_TAG        master
   )
   FetchContent_MakeAvailable(handlegraph)
-ENDIF()
+endif()
 
 # sdsl-lite (full build using its cmake config)
-IF (NOT TARGET sdsl)
+if (NOT TARGET sdsl)
     FetchContent_Declare(sdsl-lite
     GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
     GIT_TAG       5c425837929b6f323fd7cccfa6c15ffcec6d94bb)
     FetchContent_MakeAvailable(sdsl-lite)
-ENDIF()
+endif()
 
 # mmmulti (memory mapped multimap)
 ExternalProject_Add(mmmulti
