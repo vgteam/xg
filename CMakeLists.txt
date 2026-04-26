@@ -77,16 +77,10 @@ ENDIF()
 
 # sdsl-lite (full build using its cmake config)
 IF (NOT TARGET sdsl)
-    ExternalProject_Add(sdsl-lite
-      SOURCE_DIR "${CMAKE_SOURCE_DIR}/deps/sdsl-lite"
-      CMAKE_ARGS "${CMAKE_ARGS};-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      UPDATE_COMMAND ""
-      INSTALL_COMMAND "")
-    ExternalProject_Get_property(sdsl-lite INSTALL_DIR)
-    set(sdsl-lite_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/include")
-    set(sdsl-lite-divsufsort_INCLUDE "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/include")
-    set(sdsl-lite_LIB "${INSTALL_DIR}/src/sdsl-lite-build/lib")
-    set(sdsl-lite-divsufsort_LIB "${INSTALL_DIR}/src/sdsl-lite-build/external/libdivsufsort/lib")
+    FetchContent_Declare(sdsl-lite
+    GIT_REPOSITORY https://github.com/vgteam/sdsl-lite.git
+    GIT_TAG       5c425837929b6f323fd7cccfa6c15ffcec6d94bb)
+    FetchContent_MakeAvailable(sdsl-lite)
 ENDIF()
 
 # mmmulti (memory mapped multimap)
