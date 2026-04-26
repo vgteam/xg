@@ -204,6 +204,11 @@ set_target_properties(libxg_shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 set_target_properties(libxg_static PROPERTIES PUBLIC_HEADER "${xg_HEADERS}")
 set_target_properties(libxg_shared PROPERTIES PUBLIC_HEADER "${xg_HEADERS}")
 
+#sdsl includes
+target_include_directories(xg_objs PRIVATE ${sdsl-lite_SOURCE_DIR}/include)                 
+target_include_directories(libxg_shared PRIVATE ${sdsl-lite_SOURCE_DIR}/include)            
+target_include_directories(libxg_static PRIVATE ${sdsl-lite_SOURCE_DIR}/include)
+
 install(TARGETS xg DESTINATION bin)
 install(TARGETS libxg_static ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/xg)
 install(TARGETS libxg_shared ARCHIVE DESTINATION lib LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/xg)
