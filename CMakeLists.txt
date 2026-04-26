@@ -174,9 +174,6 @@ set(xg_HEADERS
 #target_include_directories(xg PUBLIC
 set(xg_INCLUDES
   "${CMAKE_SOURCE_DIR}/src"
-  "${handlegraph_INCLUDE}"
-  "${sdsl-lite_INCLUDE}"
-  "${sdsl-lite-divsufsort_INCLUDE}"
   "${tayweeargs_INCLUDE}"
   "${ips4o_INCLUDE}"
   "${mmmulti_INCLUDE}"
@@ -186,10 +183,6 @@ set(xg_INCLUDES
   "${gfakluge_tinyFA_INCLUDE}")
 
 set(xg_LIBS
-  "${sdsl-lite_LIB}/libsdsl.a"
-  "${sdsl-lite-divsufsort_LIB}/libdivsufsort.a"
-  "${sdsl-lite-divsufsort_LIB}/libdivsufsort64.a"
-  "${handlegraph_LIB}/libhandlegraph.a"
   "-latomic")
 
 target_include_directories(xg_objs PUBLIC ${xg_INCLUDES})
@@ -197,7 +190,7 @@ target_include_directories(xg_objs PUBLIC ${xg_INCLUDES})
 add_executable(xg
   $<TARGET_OBJECTS:xg_objs>
   ${CMAKE_SOURCE_DIR}/src/main.cpp)
-target_link_libraries(xg ${xg_LIBS})
+target_link_libraries(xg handlegraph sdsl-lite ${xg_LIBS})
 set_target_properties(xg PROPERTIES OUTPUT_NAME "xg")
 target_include_directories(xg PUBLIC ${xg_INCLUDES})
 
