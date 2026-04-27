@@ -114,6 +114,7 @@ ExternalProject_Add(atomicqueue
   CONFIGURE_COMMAND "")
 ExternalProject_Get_property(atomicqueue SOURCE_DIR)
 set(atomicqueue_INCLUDE "${SOURCE_DIR}/include/atomic_queue")
+target_compile_options(atomicqueue PRIVATE -Wno-missing-template-arg-list-after-template-kw)
 
 # taywee's C++ args library, header only
 ExternalProject_Add(tayweeargs
