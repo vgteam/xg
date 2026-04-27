@@ -92,6 +92,7 @@ ExternalProject_Add(mmmulti
   CONFIGURE_COMMAND "")
 ExternalProject_Get_property(mmmulti SOURCE_DIR)
 set(mmmulti_INCLUDE "${SOURCE_DIR}/src")
+target_compile_options(mmmulti PRIVATE -Wno-missing-template-arg-list-after-template-kw)  
 
 # mio (headers used by mmmulti)
 set(mio_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/deps/mmmulti/deps/mio/include")
