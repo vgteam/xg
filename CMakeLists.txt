@@ -35,7 +35,7 @@ FetchContent_Declare(libdivsufsort
 )
 FetchContent_Declare(mmmulti
     GIT_REPOSITORY https://github.com/vgteam/mmmulti.git
-    GIT_TAG        b7b399aba05015417501fcf6b2c697fe0559b853
+    GIT_TAG        9720d2a8701a039da94e4d027769d1af8042670b
     EXCLUDE_FROM_ALL
 )
 set(IPS4O_OPTIMIZE_FOR_NATIVE OFF)
@@ -63,16 +63,14 @@ FetchContent_MakeAvailable(
     libhandlegraph
     sdsl-lite
     libdivsufsort
-    mmmulti
     ips4o
     atomic_queue
+    mmmulti
     tayweeargs
     gfakluge
 )
 
-# mmmulti pulls in ips4o (needs _OPENMP for parallel::sort) and paryfor
-# (uses `Base::template foo(...)` syntax that newer clang diagnoses).
-target_link_libraries(mmmulti_lib PUBLIC OpenMP::OpenMP_CXX)
+# paryfor uses `Base::template foo(...)` syntax that newer clang diagnoses.
 target_compile_options(mmmulti_lib PRIVATE -Wno-missing-template-arg-list-after-template-kw)
 
 add_library(libxg_static STATIC
