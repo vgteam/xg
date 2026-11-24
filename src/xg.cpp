@@ -1495,6 +1495,7 @@ void XG::index_node_to_path(const std::string& basename) {
     std::cerr << "determining size of node to path position mappings" << std::endl;
 #endif
     uint64_t np_size = 0;
+    uint64_t max_path_and_rev = 0, max_step_rank = 0, max_position = 0;
     for (int64_t i = 0; i < node_count; ++i) {
 #ifdef VERBOSE_DEBUG
         if (i % 1000 == 0) std::cerr << i << " of " << node_count << " ~ " << (float)i/(float)node_count * 100 << "%" << "\r";
@@ -1502,6 +1503,9 @@ void XG::index_node_to_path(const std::string& basename) {
         uint64_t has_steps = false;
         node_path_mm->for_values_of(i+1, [&](const std::tuple<uint64_t, uint64_t, uint64_t>& v) {
             ++np_size;
+            max_path_and_rev = std::max(max_path_and_rev, std::get<0>(v));
+            max_step_rank = std::max(max_step_rank, std::get<1>(v));
+            max_position = std::max(max_position, std::get<2>(v));
             has_steps = true;
         });
         if (!has_steps) ++np_size; // skip over null entry
@@ -1509,9 +1513,14 @@ void XG::index_node_to_path(const std::string& basename) {
 #ifdef VERBOSE_DEBUG
     std::cerr << node_count << " of " << node_count << " ~ 100.0000%" << std::endl;
 #endif
-    sdsl::util::assign(np_iv, sdsl::int_vector<>(np_size));
-    sdsl::util::assign(nr_iv, sdsl::int_vector<>(np_size));
-    sdsl::util::assign(nx_iv, sdsl::int_vector<>(np_size));
+    // The counting traversal already visits every tuple. Allocate at the exact
+    // required widths, avoiding three 64-bit arrays and their compression copies.
+    sdsl::util::assign(np_iv, sdsl::int_vector<>(np_size, 0,
+        sdsl::bits::hi(max_path_and_rev) + 1));
+    sdsl::util::assign(nr_iv, sdsl::int_vector<>(np_size, 0,
+        sdsl::bits::hi(max_step_rank) + 1));
+    sdsl::util::assign(nx_iv, sdsl::int_vector<>(np_size, 0,
+        sdsl::bits::hi(max_position) + 1));
     sdsl::util::assign(np_bv, sdsl::bit_vector(np_size));
     // now we need to map this into a new data structure for node->path position mappings
 #ifdef VERBOSE_DEBUG
@@ -1550,10 +1559,6 @@ void XG::index_node_to_path(const std::string& basename) {
 #endif
     node_path_mm.reset();
     std::remove(node_path_idx.c_str());
-    // TODO, evaluate if these should be compressed more intensely
-    sdsl::util::bit_compress(np_iv);
-    sdsl::util::bit_compress(nr_iv);
-    sdsl::util::bit_compress(nx_iv);
     sdsl::util::assign(np_bv_select, sdsl::bit_vector::select_1_type(&np_bv));
 }
 
