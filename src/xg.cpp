@@ -885,22 +885,10 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     for_each_edge([&](const nid_t& from_id, const bool& from_rev, const nid_t& to_id, const bool& to_rev) {
         ++edge_count;
     });
-    // path count
-    std::string pname;
-#ifdef VERBOSE_DEBUG
-    std::cerr << "counting paths" << std::endl;
-#endif
-    for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
-            if (path_name != pname) {
-                ++path_count;
-            }
-            pname = path_name;
-        });
 #ifdef VERBOSE_DEBUG
     std::cerr << "graph has " << seq_length << "bp in sequence, "
               << node_count << " nodes, "
-              << edge_count << " edges, and "
-              << path_count << " paths" << std::endl
+              << edge_count << " edges" << std::endl
               << "node ids run from " << min_id << " to " << max_id << std::endl;
 #endif
 
@@ -1081,12 +1069,11 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     std::vector<handle_t> curr_path_steps;
     size_t curr_node_count = 0;
     bool curr_is_circular = false; // TODO, use TP:Z:circular tag... we'll have to fish this out of the file
-    uint64_t p = 0;
 
     auto build_accumulated_path = [&](void) {
         // only build if we had a path to build
 #ifdef VERBOSE_DEBUG
-        if (++p % 100 == 0) std::cerr << p << " of " << path_count << " ~ " << (float)p/(float)path_count * 100 << "%" << "\r";
+        if ((paths.size() + 1) % 100 == 0) std::cerr << paths.size() + 1 << " paths built\r";
 #endif
 
 #ifdef debug_path_index
@@ -1121,7 +1108,12 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     // todo ... is it circular?
     // might make sense to scan the file for this
     bool has_path = false;
+    std::string previous_path_name;
     for_each_path_element([&](const std::string& path_name, const nid_t& node_id, const bool& is_rev, const std::string& cigar, const bool& is_empty, const bool& is_circular) {
+            if (path_name != previous_path_name) {
+                ++path_count;
+                previous_path_name = path_name;
+            }
             if (path_name != curr_path_name && !curr_path_name.empty()) {
                 // build the last path we've accumulated
                 build_accumulated_path();
@@ -1149,7 +1141,7 @@ void XG::from_enumerators(const std::function<void(const std::function<void(cons
     curr_path_steps.clear();
     curr_is_circular = false;
 #ifdef VERBOSE_DEBUG
-    std::cerr << path_count << " of " << path_count << " ~ 100.0000%" << std::endl;
+    std::cerr << path_count << " paths" << std::endl;
 #endif
 
     //std::cerr << "path names " << path_names << std::endl;
